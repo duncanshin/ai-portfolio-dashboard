@@ -5,64 +5,54 @@ import { Activity, TrendingUp, Shield, Zap, BarChart3, GitBranch, ChevronRight, 
 const INFLATION_RATE = 0.03
 const START_YEAR = 2000
 const END_YEAR = 2026
-const END_MONTH = 4 // April 2026
-const MONTHS_TOTAL = (END_YEAR - START_YEAR) * 12 + END_MONTH // Jan 2000 to Apr 2026
+const END_MONTH = 4
+const MONTHS_TOTAL = (END_YEAR - START_YEAR) * 12 + END_MONTH
+const INITIAL_CAPITAL = 100000
 
 const BASE_PROFILES = {
   aggressive: { name: 'Aggressive', color: '#f97316', bg: 'rgba(249,115,22,0.08)', border: 'rgba(249,115,22,0.25)', winRate: 67.5, positions: 10, rebalance: '7d', trailingStop: '10%', strategy: 'Pure momentum', icon: Zap },
   growth: { name: 'Growth', label: "Duncan's Profile", color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)', winRate: 70.5, positions: 12, rebalance: '14d', trailingStop: '9%', strategy: 'Momentum + Quality + Low-Vol', icon: TrendingUp },
   conservative: { name: 'Conservative', color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.25)', winRate: 72.2, positions: 15, rebalance: '14d', trailingStop: '7%', strategy: 'Quality + Low-volatility', icon: Shield },
-  benchmark: { name: 'S&P 500', color: '#a8b5c8', winRate: null }
+  benchmark: { name: 'S&P 500', color: '#64748b', winRate: null }
 }
 
-// Monthly regime multipliers for each strategy from 2000-2026
-// Aggressive (momentum) gets hurt worst in crashes, best in recoveries
-// Conservative (quality) holds up best in crashes, less upside in booms
-// Benchmark follows S&P 500 actual regime patterns
 function genCurve(annualTarget, crashResist, recoveryBoost) {
   const pts = []
   const monthlyR = Math.pow(1 + annualTarget / 100, 1 / 12) - 1
-  let val = 100000
+  let val = INITIAL_CAPITAL
 
-  // Regime definitions: [startMonth, endMonth, multiplier]
-  // Month 0 = Jan 2000
   const regimes = [
-    // Dot-com bubble peak & crash (2000-2002)
-    { s: 0, e: 5, m: 0.3 * crashResist },          // 2000 H1: bubble bursting
-    { s: 6, e: 11, m: -1.5 * (2 - crashResist) },   // 2000 H2: crash accelerates
-    { s: 12, e: 23, m: -1.2 * (2 - crashResist) },   // 2001: recession, 9/11
-    { s: 24, e: 35, m: -0.6 * (2 - crashResist) },   // 2002: bottom
-    // Recovery (2003-2006)
-    { s: 36, e: 47, m: 1.3 * recoveryBoost },        // 2003: strong recovery
-    { s: 48, e: 59, m: 1.1 * recoveryBoost },        // 2004: steady growth
-    { s: 60, e: 71, m: 1.0 },                        // 2005: moderate
-    { s: 72, e: 83, m: 1.1 },                        // 2006: pre-crisis boom
-    // 2007-2009 Financial Crisis
-    { s: 84, e: 95, m: 0.2 * crashResist },          // 2007: cracks appearing
-    { s: 96, e: 102, m: -2.0 * (2 - crashResist) },  // 2008 H1: Bear Stearns
-    { s: 103, e: 107, m: -3.0 * (2 - crashResist) }, // 2008 Sep-Dec: Lehman, freefall
-    { s: 108, e: 111, m: -1.5 * (2 - crashResist) }, // 2009 Q1: bottom
-    { s: 112, e: 119, m: 2.5 * recoveryBoost },      // 2009 Q2-Q4: V recovery
-    // Post-crisis bull (2010-2017)
-    { s: 120, e: 131, m: 1.2 * recoveryBoost },      // 2010
-    { s: 132, e: 143, m: 0.8 },                      // 2011: debt ceiling crisis
-    { s: 144, e: 155, m: 1.2 },                      // 2012
-    { s: 156, e: 167, m: 1.4 * recoveryBoost },      // 2013: strong year
-    { s: 168, e: 179, m: 1.1 },                      // 2014
-    { s: 180, e: 191, m: 0.7 },                      // 2015: flat/volatile
-    { s: 192, e: 203, m: 1.0 },                      // 2016
-    { s: 204, e: 215, m: 1.3 * recoveryBoost },      // 2017: low vol melt-up
-    // 2018-2025 (our confirmed backtest period)
-    { s: 216, e: 227, m: 0.6 },                      // 2018: Q4 correction
-    { s: 228, e: 239, m: 1.4 },                      // 2019
-    { s: 240, e: 242, m: -2.5 * (2 - crashResist) }, // 2020 Q1: COVID crash
-    { s: 243, e: 251, m: 2.0 * recoveryBoost },      // 2020 Q2-Q4: recovery
-    { s: 252, e: 263, m: 1.3 * recoveryBoost },      // 2021
-    { s: 264, e: 275, m: -0.8 * (2 - crashResist) }, // 2022: rate hike bear
-    { s: 276, e: 287, m: 1.5 * recoveryBoost },      // 2023
-    { s: 288, e: 299, m: 1.4 * recoveryBoost },      // 2024
-    { s: 300, e: 311, m: 1.1 },                      // 2025
-    { s: 312, e: 316, m: 0.9 },                      // 2026 Jan-Apr
+    { s: 0, e: 5, m: 0.3 * crashResist },
+    { s: 6, e: 11, m: -1.5 * (2 - crashResist) },
+    { s: 12, e: 23, m: -1.2 * (2 - crashResist) },
+    { s: 24, e: 35, m: -0.6 * (2 - crashResist) },
+    { s: 36, e: 47, m: 1.3 * recoveryBoost },
+    { s: 48, e: 59, m: 1.1 * recoveryBoost },
+    { s: 60, e: 71, m: 1.0 },
+    { s: 72, e: 83, m: 1.1 },
+    { s: 84, e: 95, m: 0.2 * crashResist },
+    { s: 96, e: 102, m: -2.0 * (2 - crashResist) },
+    { s: 103, e: 107, m: -3.0 * (2 - crashResist) },
+    { s: 108, e: 111, m: -1.5 * (2 - crashResist) },
+    { s: 112, e: 119, m: 2.5 * recoveryBoost },
+    { s: 120, e: 131, m: 1.2 * recoveryBoost },
+    { s: 132, e: 143, m: 0.8 },
+    { s: 144, e: 155, m: 1.2 },
+    { s: 156, e: 167, m: 1.4 * recoveryBoost },
+    { s: 168, e: 179, m: 1.1 },
+    { s: 180, e: 191, m: 0.7 },
+    { s: 192, e: 203, m: 1.0 },
+    { s: 204, e: 215, m: 1.3 * recoveryBoost },
+    { s: 216, e: 227, m: 0.6 },
+    { s: 228, e: 239, m: 1.4 },
+    { s: 240, e: 242, m: -2.5 * (2 - crashResist) },
+    { s: 243, e: 251, m: 2.0 * recoveryBoost },
+    { s: 252, e: 263, m: 1.3 * recoveryBoost },
+    { s: 264, e: 275, m: -0.8 * (2 - crashResist) },
+    { s: 276, e: 287, m: 1.5 * recoveryBoost },
+    { s: 288, e: 299, m: 1.4 * recoveryBoost },
+    { s: 300, e: 311, m: 1.1 },
+    { s: 312, e: 316, m: 0.9 },
   ]
 
   for (let i = 0; i < MONTHS_TOTAL; i++) {
@@ -70,7 +60,7 @@ function genCurve(annualTarget, crashResist, recoveryBoost) {
     const m = regime ? regime.m : 1
     const noise = (Math.sin(i * 3.7 + annualTarget) * 0.012 + Math.cos(i * 2.1 + annualTarget * 0.5) * 0.008) * (m > 0 ? 1 : 0.5)
     val *= (1 + monthlyR * m + noise)
-    if (val < 10000) val = 12000 // floor
+    if (val < 10000) val = 12000
     const year = START_YEAR + Math.floor(i / 12)
     const month = (i % 12) + 1
     pts.push({ date: `${year}-${String(month).padStart(2, '0')}`, value: Math.round(val), idx: i })
@@ -78,12 +68,11 @@ function genCurve(annualTarget, crashResist, recoveryBoost) {
   return pts
 }
 
-// Generate curves: annualTarget, crashResistance (0-2, higher=better in crashes), recoveryBoost (0-2, higher=more upside)
 const equityCurves = {
-  aggressive: genCurve(28, 0.6, 1.5),      // high return, bad in crashes, great in recovery
-  growth: genCurve(20, 1.0, 1.2),           // balanced
-  conservative: genCurve(15, 1.4, 0.9),     // lower return, great in crashes, modest recovery
-  benchmark: genCurve(10, 0.8, 1.0),        // S&P 500 proxy
+  aggressive: genCurve(28, 0.6, 1.5),
+  growth: genCurve(20, 1.0, 1.2),
+  conservative: genCurve(15, 1.4, 0.9),
+  benchmark: genCurve(10, 0.8, 1.0),
 }
 
 const fullMergedCurve = equityCurves.aggressive.map((pt, i) => ({
@@ -95,14 +84,28 @@ const fullMergedCurve = equityCurves.aggressive.map((pt, i) => ({
 const ALL_DATES = fullMergedCurve.map(d => d.date)
 const dateToLabel = (d) => { const [y, m] = d.split('-'); const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return `${months[parseInt(m)-1]} ${y}` }
 
-function dateToIdx(dateStr) {
-  const idx = ALL_DATES.indexOf(dateStr)
-  return idx >= 0 ? idx : 0
+// ═══════════════════════════════════════════════════════════════
+// FIX: Normalize all curves so the selected start date = $100K.
+// This way changing the start date always shows growth from $100K,
+// not from whatever the accumulated value was at that point.
+// ═══════════════════════════════════════════════════════════════
+function normalizeCurveFromStart(data, startIdx) {
+  const keys = ['Aggressive', 'Growth', 'Conservative', 'S&P 500']
+  const startVals = {}
+  keys.forEach(k => { startVals[k] = data[startIdx][k] })
+  return data.map(d => {
+    const normalized = { ...d }
+    keys.forEach(k => {
+      normalized[k] = Math.round((d[k] / startVals[k]) * INITIAL_CAPITAL)
+    })
+    return normalized
+  })
 }
 
 function calcMetrics(curveData, startIdx, endIdx) {
   if (startIdx >= endIdx || !curveData || curveData.length === 0) return null
-  const slice = curveData.slice(startIdx, endIdx + 1)
+  const normalized = normalizeCurveFromStart(curveData, startIdx)
+  const slice = normalized.slice(startIdx, endIdx + 1)
   const years = (endIdx - startIdx) / 12
   const results = {}
   const keys = ['Aggressive', 'Growth', 'Conservative', 'S&P 500']
@@ -127,8 +130,9 @@ function calcMetrics(curveData, startIdx, endIdx) {
 }
 
 function getAdjustedCurve(data, startIdx, inflationAdj) {
-  if (!inflationAdj) return data
-  return data.map((d, i) => {
+  const normalized = normalizeCurveFromStart(data, startIdx)
+  if (!inflationAdj) return normalized
+  return normalized.map((d, i) => {
     const monthsFromStart = i - startIdx
     if (monthsFromStart < 0) return d
     const deflator = Math.pow(1 + INFLATION_RATE, monthsFromStart / 12)
@@ -167,6 +171,7 @@ function DateRangeSelector({ startIdx, endIdx, setStartIdx, setEndIdx }) {
     { label: '2008 Crisis', s: 84, e: 119 },
     { label: 'COVID', s: 240, e: 251 },
     { label: '2022 Bear', s: 264, e: 275 },
+    { label: 'Confirmed (2018-25)', s: 216, e: 299 },
   ]
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -211,7 +216,7 @@ function EquityCurveChart({ data, startIdx, endIdx, height = 340 }) {
         <Area type="monotone" dataKey="Aggressive" stroke="#f97316" strokeWidth={2} fill="url(#grad-aggressive)" dot={false} />
         <Area type="monotone" dataKey="Growth" stroke="#10b981" strokeWidth={2} fill="url(#grad-growth)" dot={false} />
         <Area type="monotone" dataKey="Conservative" stroke="#3b82f6" strokeWidth={2} fill="url(#grad-conservative)" dot={false} />
-        <Area type="monotone" dataKey="S&P 500" stroke={BASE_PROFILES.benchmark.color} strokeWidth={2.25} fill="none" strokeDasharray="5 3" dot={false} />
+        <Area type="monotone" dataKey="S&P 500" stroke="#64748b" strokeWidth={1.5} fill="none" strokeDasharray="4 4" dot={false} />
       </AreaChart>
     </ResponsiveContainer>
   )
@@ -297,8 +302,8 @@ function BacktestTab({ metrics, inflationAdj, curveData, startIdx, endIdx, setSt
           return <Card key={key}><div className="flex items-center justify-between mb-2"><span className="font-semibold" style={{ color: p.color }}>{p.name}</span><span className="font-mono text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">PASS ✅</span></div><div className="text-xs text-slate-500">{p.strategy}</div>{pm && <div className="mt-2 pt-2 border-t border-white/[0.04] grid grid-cols-2 gap-2 text-xs"><div><span className="text-slate-500">CAGR: </span><span className="font-mono" style={{ color: p.color }}>{pm.cagr}%</span></div><div><span className="text-slate-500">Sharpe: </span><span className="font-mono">{pm.sharpe.toFixed(3)}</span></div></div>}</Card>
         })}
       </div>
-      <Card><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-white/[0.06]"><th className="text-left py-3 px-3 text-xs text-slate-500 uppercase font-medium">Metric</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#f97316' }}>Aggressive</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#10b981' }}>Growth</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#3b82f6' }}>Conservative</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: BASE_PROFILES.benchmark.color }}>S&P 500</th></tr></thead>
-        <tbody>{rows.map((r, i) => <tr key={r.key} className={`border-b border-white/[0.03] ${i % 2 === 0 ? 'bg-white/[0.01]' : ''}`}><td className="py-2.5 px-3"><div className="font-medium">{r.key}</div><div className="text-[10px] text-slate-500">{r.d}</div></td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: '#f97316' }}>{r.a}</td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: '#10b981' }}>{r.g}</td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: '#3b82f6' }}>{r.c}</td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: BASE_PROFILES.benchmark.color }}>{r.b}</td></tr>)}</tbody></table></div></Card>
+      <Card><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-white/[0.06]"><th className="text-left py-3 px-3 text-xs text-slate-500 uppercase font-medium">Metric</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#f97316' }}>Aggressive</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#10b981' }}>Growth</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#3b82f6' }}>Conservative</th><th className="text-right py-3 px-3 text-xs text-slate-500 uppercase font-medium">S&P 500</th></tr></thead>
+        <tbody>{rows.map((r, i) => <tr key={r.key} className={`border-b border-white/[0.03] ${i % 2 === 0 ? 'bg-white/[0.01]' : ''}`}><td className="py-2.5 px-3"><div className="font-medium">{r.key}</div><div className="text-[10px] text-slate-500">{r.d}</div></td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: '#f97316' }}>{r.a}</td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: '#10b981' }}>{r.g}</td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: '#3b82f6' }}>{r.c}</td><td className="py-2.5 px-3 text-right font-mono text-slate-500">{r.b}</td></tr>)}</tbody></table></div></Card>
     </div>
   )
 }
@@ -324,7 +329,7 @@ function ProfilesTab({ metrics, inflationAdj }) {
   return (
     <div className="space-y-6">
       <div><h2 className="text-lg font-semibold">Profile Comparison{inflationAdj ? <span className="text-purple-400 text-sm ml-2">(Inflation-Adjusted)</span> : ''}</h2><p className="text-sm text-slate-500">Three parameterized risk profiles — same signal stack, different risk parameters.</p></div>
-      <Card><h3 className="font-semibold mb-4">Performance Radar</h3><ResponsiveContainer width="100%" height={320}><RadarChart data={radarData}><PolarGrid stroke="#1e293b" /><PolarAngleAxis dataKey="metric" tick={{ fill: BASE_PROFILES.benchmark.color, fontSize: 11 }} /><Radar name="Aggressive" dataKey="Aggressive" stroke="#f97316" fill="#f97316" fillOpacity={0.1} strokeWidth={2} /><Radar name="Growth" dataKey="Growth" stroke="#10b981" fill="#10b981" fillOpacity={0.1} strokeWidth={2} /><Radar name="Conservative" dataKey="Conservative" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.1} strokeWidth={2} /><Legend wrapperStyle={{ fontSize: 11 }} /></RadarChart></ResponsiveContainer></Card>
+      <Card><h3 className="font-semibold mb-4">Performance Radar</h3><ResponsiveContainer width="100%" height={320}><RadarChart data={radarData}><PolarGrid stroke="#1e293b" /><PolarAngleAxis dataKey="metric" tick={{ fill: '#94a3b8', fontSize: 11 }} /><Radar name="Aggressive" dataKey="Aggressive" stroke="#f97316" fill="#f97316" fillOpacity={0.1} strokeWidth={2} /><Radar name="Growth" dataKey="Growth" stroke="#10b981" fill="#10b981" fillOpacity={0.1} strokeWidth={2} /><Radar name="Conservative" dataKey="Conservative" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.1} strokeWidth={2} /><Legend wrapperStyle={{ fontSize: 11 }} /></RadarChart></ResponsiveContainer></Card>
       <Card><h3 className="font-semibold mb-3">Risk Parameters</h3><table className="w-full text-sm"><thead><tr className="border-b border-white/[0.06]"><th className="text-left py-2 px-3 text-xs text-slate-500 uppercase font-medium">Parameter</th><th className="text-center py-2 px-3 text-xs uppercase font-medium" style={{ color: '#f97316' }}>Aggressive</th><th className="text-center py-2 px-3 text-xs uppercase font-medium" style={{ color: '#10b981' }}>Growth</th><th className="text-center py-2 px-3 text-xs uppercase font-medium" style={{ color: '#3b82f6' }}>Conservative</th></tr></thead><tbody>{params.map((p, i) => <tr key={p.l} className={`border-b border-white/[0.03] ${i % 2 === 0 ? 'bg-white/[0.01]' : ''}`}><td className="py-2 px-3 font-medium text-slate-300">{p.l}</td><td className="py-2 px-3 text-center font-mono text-sm">{p.a}</td><td className="py-2 px-3 text-center font-mono text-sm">{p.g}</td><td className="py-2 px-3 text-center font-mono text-sm">{p.c}</td></tr>)}</tbody></table></Card>
       <Card><div className="flex items-center gap-2 mb-3"><Shield size={16} className="text-red-400" /><h3 className="font-semibold">Hard Guardrails — Immutable</h3></div><div className="grid grid-cols-2 gap-3 text-sm">{['Position size can never exceed 15%','Sector concentration capped at 40%','Circuit breakers are hardcoded per profile','Stop losses are always trailing, never disabled','All risk checks run before any buy logic','Self-improvement engine cannot modify guardrails'].map((r,i) => <div key={i} className="flex items-start gap-2 text-slate-400"><CheckCircle size={12} className="text-red-400 mt-0.5 shrink-0" /><span>{r}</span></div>)}</div></Card>
     </div>
@@ -361,9 +366,10 @@ export default function App() {
   const [startIdx, setStartIdx] = useState(0)
   const [endIdx, setEndIdx] = useState(MONTHS_TOTAL - 1)
   const curveData = useMemo(() => getAdjustedCurve(fullMergedCurve, startIdx, inflationAdj), [inflationAdj, startIdx])
-  const metrics = useMemo(() => calcMetrics(curveData, startIdx, endIdx), [curveData, startIdx, endIdx])
-  const tabProps = { metrics, inflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx }
-  const TabContent = { overview: () => <OverviewTab {...tabProps} />, backtest: () => <BacktestTab {...tabProps} />, profiles: () => <ProfilesTab metrics={metrics} inflationAdj={inflationAdj} />, trades: () => <TradesTab />, evolution: () => <EvolutionTab /> }
+  const metrics = useMemo(() => calcMetrics(fullMergedCurve, startIdx, endIdx), [startIdx, endIdx])
+  const inflMetrics = useMemo(() => inflationAdj ? calcMetrics(curveData, startIdx, endIdx) : metrics, [curveData, inflationAdj, startIdx, endIdx, metrics])
+  const tabProps = { metrics: inflMetrics, inflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx }
+  const TabContent = { overview: () => <OverviewTab {...tabProps} />, backtest: () => <BacktestTab {...tabProps} />, profiles: () => <ProfilesTab metrics={inflMetrics} inflationAdj={inflationAdj} />, trades: () => <TradesTab />, evolution: () => <EvolutionTab /> }
   return (
     <div className="min-h-screen bg-[#0a0e17]">
       <header className="border-b border-white/[0.06] bg-[#0a0e17]/80 backdrop-blur-md sticky top-0 z-50">
