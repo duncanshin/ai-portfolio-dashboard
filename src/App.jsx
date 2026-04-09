@@ -1,87 +1,30 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend } from 'recharts'
 import { Activity, TrendingUp, Shield, Zap, BarChart3, GitBranch, ChevronRight, Clock, CheckCircle, ToggleLeft, ToggleRight, Calendar } from 'lucide-react'
 
 const INFLATION_RATE = 0.03
-const START_YEAR = 2000
-const END_YEAR = 2026
-const END_MONTH = 4
-const MONTHS_TOTAL = (END_YEAR - START_YEAR) * 12 + END_MONTH
 const INITIAL_CAPITAL = 100000
 
 const BASE_PROFILES = {
   aggressive: { name: 'Aggressive', color: '#f97316', bg: 'rgba(249,115,22,0.08)', border: 'rgba(249,115,22,0.25)', winRate: 67.5, positions: 10, rebalance: '7d', trailingStop: '10%', strategy: 'Pure momentum', icon: Zap },
   growth: { name: 'Growth', label: "Duncan's Profile", color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)', winRate: 70.5, positions: 12, rebalance: '14d', trailingStop: '9%', strategy: 'Momentum + Quality + Low-Vol', icon: TrendingUp },
   conservative: { name: 'Conservative', color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.25)', winRate: 72.2, positions: 15, rebalance: '14d', trailingStop: '7%', strategy: 'Quality + Low-volatility', icon: Shield },
-  benchmark: { name: 'S&P 500', color: '#64748b', winRate: null }
+  benchmark: { name: 'S&P 500', color: '#cbd5e1', winRate: null }
 }
 
-function genCurve(annualTarget, crashResist, recoveryBoost) {
-  const pts = []
-  const monthlyR = Math.pow(1 + annualTarget / 100, 1 / 12) - 1
-  let val = INITIAL_CAPITAL
-
-  const regimes = [
-    { s: 0, e: 5, m: 0.3 * crashResist },
-    { s: 6, e: 11, m: -1.5 * (2 - crashResist) },
-    { s: 12, e: 23, m: -1.2 * (2 - crashResist) },
-    { s: 24, e: 35, m: -0.6 * (2 - crashResist) },
-    { s: 36, e: 47, m: 1.3 * recoveryBoost },
-    { s: 48, e: 59, m: 1.1 * recoveryBoost },
-    { s: 60, e: 71, m: 1.0 },
-    { s: 72, e: 83, m: 1.1 },
-    { s: 84, e: 95, m: 0.2 * crashResist },
-    { s: 96, e: 102, m: -2.0 * (2 - crashResist) },
-    { s: 103, e: 107, m: -3.0 * (2 - crashResist) },
-    { s: 108, e: 111, m: -1.5 * (2 - crashResist) },
-    { s: 112, e: 119, m: 2.5 * recoveryBoost },
-    { s: 120, e: 131, m: 1.2 * recoveryBoost },
-    { s: 132, e: 143, m: 0.8 },
-    { s: 144, e: 155, m: 1.2 },
-    { s: 156, e: 167, m: 1.4 * recoveryBoost },
-    { s: 168, e: 179, m: 1.1 },
-    { s: 180, e: 191, m: 0.7 },
-    { s: 192, e: 203, m: 1.0 },
-    { s: 204, e: 215, m: 1.3 * recoveryBoost },
-    { s: 216, e: 227, m: 0.6 },
-    { s: 228, e: 239, m: 1.4 },
-    { s: 240, e: 242, m: -2.5 * (2 - crashResist) },
-    { s: 243, e: 251, m: 2.0 * recoveryBoost },
-    { s: 252, e: 263, m: 1.3 * recoveryBoost },
-    { s: 264, e: 275, m: -0.8 * (2 - crashResist) },
-    { s: 276, e: 287, m: 1.5 * recoveryBoost },
-    { s: 288, e: 299, m: 1.4 * recoveryBoost },
-    { s: 300, e: 311, m: 1.1 },
-    { s: 312, e: 316, m: 0.9 },
-  ]
-
-  for (let i = 0; i < MONTHS_TOTAL; i++) {
-    const regime = regimes.find(r => i >= r.s && i <= r.e)
-    const m = regime ? regime.m : 1
-    const noise = (Math.sin(i * 3.7 + annualTarget) * 0.012 + Math.cos(i * 2.1 + annualTarget * 0.5) * 0.008) * (m > 0 ? 1 : 0.5)
-    val *= (1 + monthlyR * m + noise)
-    if (val < 10000) val = 12000
-    const year = START_YEAR + Math.floor(i / 12)
-    const month = (i % 12) + 1
-    pts.push({ date: `${year}-${String(month).padStart(2, '0')}`, value: Math.round(val), idx: i })
-  }
-  return pts
+// Equity curves are loaded from /backtest_output.json at runtime (see App).
+// JSON shape: { equity_curves: { dates: [YYYY-MM], aggressive: [$], growth, conservative, benchmark }, metrics: {...} }
+function buildMergedFromJson(json) {
+  const ec = json.equity_curves
+  return ec.dates.map((date, i) => ({
+    date, idx: i,
+    Aggressive: ec.aggressive[i],
+    Growth: ec.growth[i],
+    Conservative: ec.conservative[i],
+    'S&P 500': ec.benchmark[i],
+  }))
 }
 
-const equityCurves = {
-  aggressive: genCurve(28, 0.6, 1.5),
-  growth: genCurve(20, 1.0, 1.2),
-  conservative: genCurve(15, 1.4, 0.9),
-  benchmark: genCurve(10, 0.8, 1.0),
-}
-
-const fullMergedCurve = equityCurves.aggressive.map((pt, i) => ({
-  date: pt.date, idx: i,
-  Aggressive: pt.value, Growth: equityCurves.growth[i].value,
-  Conservative: equityCurves.conservative[i].value, 'S&P 500': equityCurves.benchmark[i].value,
-}))
-
-const ALL_DATES = fullMergedCurve.map(d => d.date)
 const dateToLabel = (d) => { const [y, m] = d.split('-'); const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return `${months[parseInt(m)-1]} ${y}` }
 
 // ═══════════════════════════════════════════════════════════════
@@ -159,36 +102,38 @@ function InflationToggle({ inflationAdj, setInflationAdj }) {
   return <button onClick={() => setInflationAdj(!inflationAdj)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${inflationAdj ? 'bg-purple-500/15 text-purple-300 border-purple-500/30' : 'bg-white/[0.03] text-slate-400 border-white/[0.08] hover:border-white/[0.15]'}`}>{inflationAdj ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}{inflationAdj ? 'Real (Inflation-Adj.)' : 'Nominal'}</button>
 }
 
-function DateRangeSelector({ startIdx, endIdx, setStartIdx, setEndIdx }) {
+function DateRangeSelector({ startIdx, endIdx, setStartIdx, setEndIdx, dates }) {
+  const total = dates.length
+  // Anchor named regimes by date so they survive any future re-extension of the dataset.
+  const findIdx = (label) => Math.max(0, dates.indexOf(label))
   const ranges = [
-    { label: 'All', s: 0, e: MONTHS_TOTAL - 1 },
-    { label: '10Y', s: MONTHS_TOTAL - 120, e: MONTHS_TOTAL - 1 },
-    { label: '5Y', s: MONTHS_TOTAL - 60, e: MONTHS_TOTAL - 1 },
-    { label: '3Y', s: MONTHS_TOTAL - 36, e: MONTHS_TOTAL - 1 },
-    { label: '1Y', s: MONTHS_TOTAL - 12, e: MONTHS_TOTAL - 1 },
-    { label: 'Dot-Com Crash', s: 0, e: 35 },
-    { label: 'Lost Decade', s: 0, e: 119 },
-    { label: '2008 Crisis', s: 84, e: 119 },
-    { label: 'COVID', s: 240, e: 251 },
-    { label: '2022 Bear', s: 264, e: 275 },
-    { label: 'Confirmed (2018-25)', s: 216, e: 299 },
+    { label: 'All', s: 0, e: total - 1 },
+    { label: '10Y', s: total - 120, e: total - 1 },
+    { label: '5Y', s: total - 60, e: total - 1 },
+    { label: '3Y', s: total - 36, e: total - 1 },
+    { label: '1Y', s: total - 12, e: total - 1 },
+    { label: 'Dot-Com Crash', s: findIdx('2000-01'), e: findIdx('2002-12') },
+    { label: 'Lost Decade', s: findIdx('2000-01'), e: findIdx('2009-12') },
+    { label: '2008 Crisis', s: findIdx('2007-01'), e: findIdx('2009-12') },
+    { label: 'COVID', s: findIdx('2020-01'), e: findIdx('2020-12') },
+    { label: '2022 Bear', s: findIdx('2022-01'), e: findIdx('2022-12') },
   ]
   return (
     <div className="flex flex-wrap items-center gap-3">
       <div className="flex items-center gap-1.5">
         <Calendar size={12} className="text-slate-500" />
         <select value={startIdx} onChange={e => setStartIdx(Number(e.target.value))} className="bg-white/[0.04] border border-white/[0.08] rounded-md px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-emerald-500/40">
-          {ALL_DATES.map((d, i) => <option key={`s-${i}`} value={i} style={{ background: '#0f1420' }}>{dateToLabel(d)}</option>)}
+          {dates.map((d, i) => <option key={`s-${i}`} value={i} style={{ background: '#0f1420' }}>{dateToLabel(d)}</option>)}
         </select>
         <span className="text-slate-600 text-xs">to</span>
         <select value={endIdx} onChange={e => setEndIdx(Number(e.target.value))} className="bg-white/[0.04] border border-white/[0.08] rounded-md px-2 py-1 text-xs text-slate-300 focus:outline-none focus:border-emerald-500/40">
-          {ALL_DATES.map((d, i) => <option key={`e-${i}`} value={i} style={{ background: '#0f1420' }}>{dateToLabel(d)}</option>)}
+          {dates.map((d, i) => <option key={`e-${i}`} value={i} style={{ background: '#0f1420' }}>{dateToLabel(d)}</option>)}
         </select>
       </div>
       <div className="flex flex-wrap gap-1">
         {ranges.map(r => {
           const active = startIdx === r.s && endIdx === r.e
-          return <button key={r.label} onClick={() => { setStartIdx(Math.max(0, r.s)); setEndIdx(Math.min(MONTHS_TOTAL - 1, r.e)) }}
+          return <button key={r.label} onClick={() => { setStartIdx(Math.max(0, r.s)); setEndIdx(Math.min(total - 1, r.e)) }}
             className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all whitespace-nowrap ${active ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-white/[0.03] text-slate-500 border border-white/[0.05] hover:text-slate-300'}`}>{r.label}</button>
         })}
       </div>
@@ -216,13 +161,13 @@ function EquityCurveChart({ data, startIdx, endIdx, height = 340 }) {
         <Area type="monotone" dataKey="Aggressive" stroke="#f97316" strokeWidth={2} fill="url(#grad-aggressive)" dot={false} />
         <Area type="monotone" dataKey="Growth" stroke="#10b981" strokeWidth={2} fill="url(#grad-growth)" dot={false} />
         <Area type="monotone" dataKey="Conservative" stroke="#3b82f6" strokeWidth={2} fill="url(#grad-conservative)" dot={false} />
-        <Area type="monotone" dataKey="S&P 500" stroke="#64748b" strokeWidth={1.5} fill="none" strokeDasharray="4 4" dot={false} />
+        <Area type="monotone" dataKey="S&P 500" stroke={BASE_PROFILES.benchmark.color} strokeWidth={2.5} fill="none" strokeDasharray="5 3" dot={false} />
       </AreaChart>
     </ResponsiveContainer>
   )
 }
 
-function OverviewTab({ metrics, inflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx }) {
+function OverviewTab({ metrics, inflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates }) {
   const profileKeys = ['aggressive', 'growth', 'conservative']
   const metricNames = { aggressive: 'Aggressive', growth: 'Growth', conservative: 'Conservative' }
   return (
@@ -256,10 +201,10 @@ function OverviewTab({ metrics, inflationAdj, curveData, startIdx, endIdx, setSt
       </div>
       <Card>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold">Equity Curves — {dateToLabel(ALL_DATES[startIdx])} to {dateToLabel(ALL_DATES[endIdx])}{inflationAdj ? <span className="text-purple-400 text-xs ml-2">(Real)</span> : ''}</h3>
+          <h3 className="font-semibold">Equity Curves — {dateToLabel(dates[startIdx])} to {dateToLabel(dates[endIdx])}{inflationAdj ? <span className="text-purple-400 text-xs ml-2">(Real)</span> : ''}</h3>
           <div className="flex gap-4 text-xs">{['aggressive', 'growth', 'conservative', 'benchmark'].map(k => <div key={k} className="flex items-center gap-1.5"><span className="w-2.5 h-0.5 rounded" style={{ background: BASE_PROFILES[k].color }} /><span className="text-slate-400">{BASE_PROFILES[k].name}</span></div>)}</div>
         </div>
-        <div className="mb-3"><DateRangeSelector startIdx={startIdx} endIdx={endIdx} setStartIdx={setStartIdx} setEndIdx={setEndIdx} /></div>
+        <div className="mb-3"><DateRangeSelector startIdx={startIdx} endIdx={endIdx} setStartIdx={setStartIdx} setEndIdx={setEndIdx} dates={dates} /></div>
         <EquityCurveChart data={curveData} startIdx={startIdx} endIdx={endIdx} />
       </Card>
       <Card>
@@ -274,26 +219,26 @@ function OverviewTab({ metrics, inflationAdj, curveData, startIdx, endIdx, setSt
   )
 }
 
-function BacktestTab({ metrics, inflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx }) {
+function BacktestTab({ metrics, inflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates }) {
   const m = metrics; const years = ((endIdx - startIdx) / 12).toFixed(1)
   const rows = m ? [
-    { key: 'CAGR', a: `${m.Aggressive.cagr}%`, g: `${m.Growth.cagr}%`, c: `${m.Conservative.cagr}%`, b: `${m['S&P 500'].cagr}%`, d: `Compound annual growth rate${inflationAdj ? ' (real)' : ''}` },
+    { key: 'CAGR', a: `${m.Aggressive.cagr}%`, g: `${m.Growth.cagr}%`, c: `${m.Conservative.cagr}%`, b: `${m['S&P 500'].cagr}%`, d: 'Compound annual growth rate' },
     { key: 'Sharpe Ratio', a: m.Aggressive.sharpe.toFixed(3), g: m.Growth.sharpe.toFixed(3), c: m.Conservative.sharpe.toFixed(3), b: m['S&P 500'].sharpe.toFixed(3), d: 'Risk-adjusted return' },
     { key: 'Max Drawdown', a: `${m.Aggressive.maxDD}%`, g: `${m.Growth.maxDD}%`, c: `${m.Conservative.maxDD}%`, b: `${m['S&P 500'].maxDD}%`, d: 'Largest peak-to-trough decline' },
     { key: 'Alpha vs SPY', a: `${m.Aggressive.alpha}%`, g: `${m.Growth.alpha}%`, c: `${m.Conservative.alpha}%`, b: '0%', d: 'Excess return over benchmark' },
     { key: 'Win Rate', a: '67.5%', g: '70.5%', c: '72.2%', b: '—', d: 'Profitable trade percentage' },
-    { key: 'Total Return', a: `${m.Aggressive.totalReturn.toLocaleString()}%`, g: `${m.Growth.totalReturn.toLocaleString()}%`, c: `${m.Conservative.totalReturn.toLocaleString()}%`, b: `${m['S&P 500'].totalReturn.toLocaleString()}%`, d: `$100K over ${years} yrs${inflationAdj ? ' (real)' : ''}` },
-    { key: 'End Value', a: m.Aggressive.endVal >= 1000000 ? `$${(m.Aggressive.endVal/1000000).toFixed(2)}M` : `$${(m.Aggressive.endVal/1000).toFixed(0)}K`, g: m.Growth.endVal >= 1000000 ? `$${(m.Growth.endVal/1000000).toFixed(2)}M` : `$${(m.Growth.endVal/1000).toFixed(0)}K`, c: m.Conservative.endVal >= 1000000 ? `$${(m.Conservative.endVal/1000000).toFixed(2)}M` : `$${(m.Conservative.endVal/1000).toFixed(0)}K`, b: m['S&P 500'].endVal >= 1000000 ? `$${(m['S&P 500'].endVal/1000000).toFixed(2)}M` : `$${(m['S&P 500'].endVal/1000).toFixed(0)}K`, d: `Final value${inflationAdj ? " (today's dollars)" : ''}` },
+    { key: 'Total Return', a: `${m.Aggressive.totalReturn.toLocaleString()}%`, g: `${m.Growth.totalReturn.toLocaleString()}%`, c: `${m.Conservative.totalReturn.toLocaleString()}%`, b: `${m['S&P 500'].totalReturn.toLocaleString()}%`, d: `$100K over ${years} yrs` },
+    { key: 'End Value', a: m.Aggressive.endVal >= 1000000 ? `$${(m.Aggressive.endVal/1000000).toFixed(2)}M` : `$${(m.Aggressive.endVal/1000).toFixed(0)}K`, g: m.Growth.endVal >= 1000000 ? `$${(m.Growth.endVal/1000000).toFixed(2)}M` : `$${(m.Growth.endVal/1000).toFixed(0)}K`, c: m.Conservative.endVal >= 1000000 ? `$${(m.Conservative.endVal/1000000).toFixed(2)}M` : `$${(m.Conservative.endVal/1000).toFixed(0)}K`, b: m['S&P 500'].endVal >= 1000000 ? `$${(m['S&P 500'].endVal/1000000).toFixed(2)}M` : `$${(m['S&P 500'].endVal/1000).toFixed(0)}K`, d: 'Final value', realLabel: "(Real - today's dollars)" },
     { key: 'Positions', a: '10', g: '12', c: '15', b: '500', d: 'Concurrent holdings' },
     { key: 'Rebalance', a: 'Weekly', g: 'Bi-weekly', c: 'Bi-weekly', b: '—', d: 'Rotation frequency' },
     { key: 'Trailing Stop', a: '10%', g: '9%', c: '7%', b: '—', d: 'Downside protection' },
   ] : []
   return (
     <div className="space-y-6">
-      <div><h2 className="text-lg font-semibold">Backtest Results — {dateToLabel(ALL_DATES[startIdx])} to {dateToLabel(ALL_DATES[endIdx])}{inflationAdj ? <span className="text-purple-400 text-sm ml-2">(Inflation-Adjusted)</span> : ''}</h2><p className="text-sm text-slate-500">{years} years · Simulated across dot-com, 2008, COVID, and 2022 regimes.</p></div>
+      <div><h2 className="text-lg font-semibold">Backtest Results — {dateToLabel(dates[startIdx])} to {dateToLabel(dates[endIdx])}{inflationAdj ? <span className="text-purple-400 text-sm ml-2">(Inflation-Adjusted)</span> : ''}</h2><p className="text-sm text-slate-500">{years} years · Backtested across dot-com, 2008, COVID, and 2022 regimes.</p></div>
       <Card>
         <div className="flex items-center justify-between mb-3"><h3 className="font-semibold text-sm">Select Time Period</h3></div>
-        <div className="mb-3"><DateRangeSelector startIdx={startIdx} endIdx={endIdx} setStartIdx={setStartIdx} setEndIdx={setEndIdx} /></div>
+        <div className="mb-3"><DateRangeSelector startIdx={startIdx} endIdx={endIdx} setStartIdx={setStartIdx} setEndIdx={setEndIdx} dates={dates} /></div>
         <EquityCurveChart data={curveData} startIdx={startIdx} endIdx={endIdx} height={240} />
       </Card>
       <div className="grid grid-cols-3 gap-4">
@@ -302,8 +247,8 @@ function BacktestTab({ metrics, inflationAdj, curveData, startIdx, endIdx, setSt
           return <Card key={key}><div className="flex items-center justify-between mb-2"><span className="font-semibold" style={{ color: p.color }}>{p.name}</span><span className="font-mono text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">PASS ✅</span></div><div className="text-xs text-slate-500">{p.strategy}</div>{pm && <div className="mt-2 pt-2 border-t border-white/[0.04] grid grid-cols-2 gap-2 text-xs"><div><span className="text-slate-500">CAGR: </span><span className="font-mono" style={{ color: p.color }}>{pm.cagr}%</span></div><div><span className="text-slate-500">Sharpe: </span><span className="font-mono">{pm.sharpe.toFixed(3)}</span></div></div>}</Card>
         })}
       </div>
-      <Card><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-white/[0.06]"><th className="text-left py-3 px-3 text-xs text-slate-500 uppercase font-medium">Metric</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#f97316' }}>Aggressive</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#10b981' }}>Growth</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#3b82f6' }}>Conservative</th><th className="text-right py-3 px-3 text-xs text-slate-500 uppercase font-medium">S&P 500</th></tr></thead>
-        <tbody>{rows.map((r, i) => <tr key={r.key} className={`border-b border-white/[0.03] ${i % 2 === 0 ? 'bg-white/[0.01]' : ''}`}><td className="py-2.5 px-3"><div className="font-medium">{r.key}</div><div className="text-[10px] text-slate-500">{r.d}</div></td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: '#f97316' }}>{r.a}</td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: '#10b981' }}>{r.g}</td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: '#3b82f6' }}>{r.c}</td><td className="py-2.5 px-3 text-right font-mono text-slate-500">{r.b}</td></tr>)}</tbody></table></div></Card>
+      <Card><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-white/[0.06]"><th className="text-left py-3 px-3 text-xs text-slate-500 uppercase font-medium">Metric</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#f97316' }}>Aggressive</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#10b981' }}>Growth</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#3b82f6' }}>Conservative</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: BASE_PROFILES.benchmark.color }}>S&P 500</th></tr></thead>
+        <tbody>{rows.map((r, i) => <tr key={r.key} className={`border-b border-white/[0.03] ${i % 2 === 0 ? 'bg-white/[0.01]' : ''}`}><td className="py-2.5 px-3"><div className="font-medium">{r.key}{inflationAdj && <span className="text-purple-400 ml-1.5 text-xs font-normal">{r.realLabel || '(Real)'}</span>}</div><div className="text-[10px] text-slate-500">{r.d}</div></td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: '#f97316' }}>{r.a}</td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: '#10b981' }}>{r.g}</td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: '#3b82f6' }}>{r.c}</td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: BASE_PROFILES.benchmark.color }}>{r.b}</td></tr>)}</tbody></table></div></Card>
     </div>
   )
 }
@@ -364,11 +309,26 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('overview')
   const [inflationAdj, setInflationAdj] = useState(false)
   const [startIdx, setStartIdx] = useState(0)
-  const [endIdx, setEndIdx] = useState(MONTHS_TOTAL - 1)
-  const curveData = useMemo(() => getAdjustedCurve(fullMergedCurve, startIdx, inflationAdj), [inflationAdj, startIdx])
-  const metrics = useMemo(() => calcMetrics(fullMergedCurve, startIdx, endIdx), [startIdx, endIdx])
-  const inflMetrics = useMemo(() => inflationAdj ? calcMetrics(curveData, startIdx, endIdx) : metrics, [curveData, inflationAdj, startIdx, endIdx, metrics])
-  const tabProps = { metrics: inflMetrics, inflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx }
+  const [endIdx, setEndIdx] = useState(0)
+  const [fullMergedCurve, setFullMergedCurve] = useState(null)
+  const [loadError, setLoadError] = useState(null)
+
+  useEffect(() => {
+    fetch('/backtest_output.json')
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
+      .then(json => {
+        const merged = buildMergedFromJson(json)
+        setFullMergedCurve(merged)
+        setEndIdx(merged.length - 1)
+      })
+      .catch(err => setLoadError(err.message))
+  }, [])
+
+  const dates = useMemo(() => fullMergedCurve ? fullMergedCurve.map(d => d.date) : [], [fullMergedCurve])
+  const curveData = useMemo(() => fullMergedCurve ? getAdjustedCurve(fullMergedCurve, startIdx, inflationAdj) : null, [fullMergedCurve, inflationAdj, startIdx])
+  const metrics = useMemo(() => fullMergedCurve ? calcMetrics(fullMergedCurve, startIdx, endIdx) : null, [fullMergedCurve, startIdx, endIdx])
+  const inflMetrics = useMemo(() => (inflationAdj && curveData) ? calcMetrics(curveData, startIdx, endIdx) : metrics, [curveData, inflationAdj, startIdx, endIdx, metrics])
+  const tabProps = { metrics: inflMetrics, inflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates }
   const TabContent = { overview: () => <OverviewTab {...tabProps} />, backtest: () => <BacktestTab {...tabProps} />, profiles: () => <ProfilesTab metrics={inflMetrics} inflationAdj={inflationAdj} />, trades: () => <TradesTab />, evolution: () => <EvolutionTab /> }
   return (
     <div className="min-h-screen bg-[#0a0e17]">
@@ -379,7 +339,7 @@ export default function App() {
         </div>
       </header>
       <nav className="border-b border-white/[0.06]"><div className="max-w-7xl mx-auto px-6 flex gap-1">{TABS.map(tab => { const Icon = tab.icon; const active = activeTab === tab.id; return <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${active ? 'border-emerald-500 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}><Icon size={14} />{tab.label}</button> })}</div></nav>
-      <main className="max-w-7xl mx-auto px-6 py-6">{TabContent[activeTab]()}</main>
+      <main className="max-w-7xl mx-auto px-6 py-6">{loadError ? <div className="text-sm text-red-400">Failed to load /backtest_output.json: {loadError}</div> : !fullMergedCurve ? <div className="text-sm text-slate-500">Loading backtest data…</div> : TabContent[activeTab]()}</main>
       <footer className="border-t border-white/[0.06] mt-12"><div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-slate-600"><span>AI Portfolio Management System v3.1 · Jan 2000 – Apr 2026</span><span>Python · Alpaca · Claude Opus 4.6 · React</span></div></footer>
     </div>
   )
