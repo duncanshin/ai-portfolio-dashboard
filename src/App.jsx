@@ -6,9 +6,9 @@ const INFLATION_RATE = 0.03
 const INITIAL_CAPITAL = 100000
 
 const BASE_PROFILES = {
-  aggressive: { name: 'Aggressive', color: '#f97316', bg: 'rgba(249,115,22,0.08)', border: 'rgba(249,115,22,0.25)', winRate: 67.5, positions: 10, rebalance: '7d', trailingStop: '10%', strategy: 'Pure momentum', icon: Zap },
-  growth: { name: 'Growth', label: "Duncan's Profile", color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)', winRate: 70.5, positions: 12, rebalance: '14d', trailingStop: '9%', strategy: 'Momentum + Quality + Low-Vol', icon: TrendingUp },
-  conservative: { name: 'Conservative', color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.25)', winRate: 72.2, positions: 15, rebalance: '14d', trailingStop: '7%', strategy: 'Quality + Low-volatility', icon: Shield },
+  aggressive: { name: 'Aggressive', color: '#f97316', bg: 'rgba(249,115,22,0.08)', border: 'rgba(249,115,22,0.25)', winRate: 60.7, positions: 10, rebalance: '7d', trailingStop: '10%', strategy: 'Pure momentum', icon: Zap },
+  growth: { name: 'Growth', label: "Duncan's Profile", color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)', winRate: 67.8, positions: 12, rebalance: '14d', trailingStop: '9%', strategy: 'Momentum + Quality + Low-Vol', icon: TrendingUp },
+  conservative: { name: 'Conservative', color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.25)', winRate: 71.1, positions: 15, rebalance: '14d', trailingStop: '7%', strategy: 'Quality + Low-volatility', icon: Shield },
   benchmark: { name: 'S&P 500', color: '#cbd5e1', winRate: null }
 }
 
@@ -79,6 +79,19 @@ function calcMetrics(curveData, startIdx, endIdx, jsonMetrics) {
   const benchCagr = results['S&P 500'].cagr
   ;['Aggressive', 'Growth', 'Conservative'].forEach(key => { results[key].alpha = Math.round((results[key].cagr - benchCagr) * 10) / 10 })
   results['S&P 500'].alpha = 0
+
+  // For the full backtest range, prefer the engine's daily-computed alpha
+  // and override the benchmark's Sharpe / Max DD with the confirmed values
+  // (the monthly-resampled approximation diverges from the daily source-of-truth).
+  if (isFullRange && jsonMetrics) {
+    const profileMap = { 'Aggressive': 'aggressive', 'Growth': 'growth', 'Conservative': 'conservative' }
+    ;['Aggressive', 'Growth', 'Conservative'].forEach(key => {
+      const jm = jsonMetrics[profileMap[key]]
+      if (jm && jm.alpha != null) results[key].alpha = Math.round(jm.alpha * 1000) / 10
+    })
+    results['S&P 500'].sharpe = 0.45
+    results['S&P 500'].maxDD = 55.0
+  }
   return results
 }
 
@@ -183,8 +196,8 @@ function OverviewTab({ metrics, inflationAdj, curveData, startIdx, endIdx, setSt
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h2 className="text-lg font-semibold">System Status</h2><p className="text-sm text-slate-500">AI Portfolio Management System v3.1 · Data through April 2026</p></div>
-        <div className="flex gap-3"><StatusPill status="waiting" text="Paper Trading Ready" /><StatusPill status="live" text="Phase 4 Complete" /></div>
+        <div><h2 className="text-lg font-semibold">System Status</h2><p className="text-sm text-slate-500">AI Portfolio Management System v4.0 · Data through April 2026</p></div>
+        <div className="flex gap-3"><StatusPill status="waiting" text="Paper Trading Ready" /><StatusPill status="live" text="Phase 7 In Progress" /></div>
       </div>
       <div className="grid grid-cols-3 gap-4">
         {profileKeys.map(key => {
@@ -236,7 +249,7 @@ function BacktestTab({ metrics, inflationAdj, curveData, startIdx, endIdx, setSt
     { key: 'Sharpe Ratio', a: m.Aggressive.sharpe.toFixed(3), g: m.Growth.sharpe.toFixed(3), c: m.Conservative.sharpe.toFixed(3), b: m['S&P 500'].sharpe.toFixed(3), d: 'Risk-adjusted return' },
     { key: 'Max Drawdown', a: `${m.Aggressive.maxDD}%`, g: `${m.Growth.maxDD}%`, c: `${m.Conservative.maxDD}%`, b: `${m['S&P 500'].maxDD}%`, d: 'Largest peak-to-trough decline' },
     { key: 'Alpha vs SPY', a: `${m.Aggressive.alpha}%`, g: `${m.Growth.alpha}%`, c: `${m.Conservative.alpha}%`, b: '0%', d: 'Excess return over benchmark' },
-    { key: 'Win Rate', a: '67.5%', g: '70.5%', c: '72.2%', b: '—', d: 'Profitable trade percentage' },
+    { key: 'Win Rate', a: `${BASE_PROFILES.aggressive.winRate}%`, g: `${BASE_PROFILES.growth.winRate}%`, c: `${BASE_PROFILES.conservative.winRate}%`, b: '—', d: 'Profitable trade percentage' },
     { key: 'Total Return', a: `${m.Aggressive.totalReturn.toLocaleString()}%`, g: `${m.Growth.totalReturn.toLocaleString()}%`, c: `${m.Conservative.totalReturn.toLocaleString()}%`, b: `${m['S&P 500'].totalReturn.toLocaleString()}%`, d: `$100K over ${years} yrs` },
     { key: 'End Value', a: m.Aggressive.endVal >= 1000000 ? `$${(m.Aggressive.endVal/1000000).toFixed(2)}M` : `$${(m.Aggressive.endVal/1000).toFixed(0)}K`, g: m.Growth.endVal >= 1000000 ? `$${(m.Growth.endVal/1000000).toFixed(2)}M` : `$${(m.Growth.endVal/1000).toFixed(0)}K`, c: m.Conservative.endVal >= 1000000 ? `$${(m.Conservative.endVal/1000000).toFixed(2)}M` : `$${(m.Conservative.endVal/1000).toFixed(0)}K`, b: m['S&P 500'].endVal >= 1000000 ? `$${(m['S&P 500'].endVal/1000000).toFixed(2)}M` : `$${(m['S&P 500'].endVal/1000).toFixed(0)}K`, d: 'Final value', realLabel: "(Real - today's dollars)" },
     { key: 'Positions', a: '10', g: '12', c: '15', b: '500', d: 'Concurrent holdings' },
@@ -268,7 +281,7 @@ function ProfilesTab({ metrics, inflationAdj }) {
   const radarData = m ? [
     { metric: 'CAGR', Aggressive: m.Aggressive.cagr, Growth: m.Growth.cagr, Conservative: m.Conservative.cagr, max: Math.max(m.Aggressive.cagr, 45) },
     { metric: 'Sharpe', Aggressive: m.Aggressive.sharpe * 20, Growth: m.Growth.sharpe * 20, Conservative: m.Conservative.sharpe * 20, max: 30 },
-    { metric: 'Win Rate', Aggressive: 67.5, Growth: 70.5, Conservative: 72.2, max: 80 },
+    { metric: 'Win Rate', Aggressive: BASE_PROFILES.aggressive.winRate, Growth: BASE_PROFILES.growth.winRate, Conservative: BASE_PROFILES.conservative.winRate, max: 80 },
     { metric: 'Alpha', Aggressive: Math.max(0, m.Aggressive.alpha), Growth: Math.max(0, m.Growth.alpha), Conservative: Math.max(0, m.Conservative.alpha), max: Math.max(m.Aggressive.alpha || 1, 40) },
     { metric: 'DD Control', Aggressive: (100 - m.Aggressive.maxDD), Growth: (100 - m.Growth.maxDD), Conservative: (100 - m.Conservative.maxDD), max: 100 },
   ].map(d => ({ ...d, Aggressive: (d.Aggressive / d.max) * 100, Growth: (d.Growth / d.max) * 100, Conservative: (d.Conservative / d.max) * 100 })) : []
@@ -352,7 +365,7 @@ export default function App() {
       </header>
       <nav className="border-b border-white/[0.06]"><div className="max-w-7xl mx-auto px-6 flex gap-1">{TABS.map(tab => { const Icon = tab.icon; const active = activeTab === tab.id; return <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${active ? 'border-emerald-500 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}><Icon size={14} />{tab.label}</button> })}</div></nav>
       <main className="max-w-7xl mx-auto px-6 py-6">{loadError ? <div className="text-sm text-red-400">Failed to load /backtest_output.json: {loadError}</div> : !fullMergedCurve ? <div className="text-sm text-slate-500">Loading backtest data…</div> : TabContent[activeTab]()}</main>
-      <footer className="border-t border-white/[0.06] mt-12"><div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-slate-600"><span>AI Portfolio Management System v3.1 · Jan 2000 – Apr 2026</span><span>Python · Alpaca · Claude Opus 4.6 · React</span></div></footer>
+      <footer className="border-t border-white/[0.06] mt-12"><div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-slate-600"><span>AI Portfolio Management System v4.0 · Jan 2000 – Apr 2026</span><span>Python · Alpaca · Claude Opus 4.6 · React</span></div></footer>
     </div>
   )
 }
