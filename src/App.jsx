@@ -45,13 +45,14 @@ function normalizeCurveFromStart(data, startIdx) {
   })
 }
 
-function calcMetrics(curveData, startIdx, endIdx) {
+function calcMetrics(curveData, startIdx, endIdx, jsonMetrics) {
   if (startIdx >= endIdx || !curveData || curveData.length === 0) return null
   const normalized = normalizeCurveFromStart(curveData, startIdx)
   const slice = normalized.slice(startIdx, endIdx + 1)
   const years = (endIdx - startIdx) / 12
   const results = {}
   const keys = ['Aggressive', 'Growth', 'Conservative', 'S&P 500']
+  const isFullRange = startIdx === 0 && endIdx === curveData.length - 1
   keys.forEach(key => {
     const startVal = slice[0][key]; const endVal = slice[slice.length - 1][key]
     const values = slice.map(d => d[key])
@@ -63,7 +64,16 @@ function calcMetrics(curveData, startIdx, endIdx) {
     for (let i = 1; i < values.length; i++) monthlyReturns.push((values[i] - values[i-1]) / values[i-1])
     const avgReturn = monthlyReturns.length > 0 ? monthlyReturns.reduce((a, b) => a + b, 0) / monthlyReturns.length : 0
     const stdDev = monthlyReturns.length > 1 ? Math.sqrt(monthlyReturns.reduce((s, r) => s + Math.pow(r - avgReturn, 2), 0) / monthlyReturns.length) : 0.01
-    const sharpe = stdDev > 0 ? (avgReturn / stdDev) * Math.sqrt(12) : 0
+    let sharpe = stdDev > 0 ? (avgReturn / stdDev) * Math.sqrt(12) : 0
+
+    // Use JSON metrics for full-range view (daily-computed values are more accurate)
+    const profileMap = { 'Aggressive': 'aggressive', 'Growth': 'growth', 'Conservative': 'conservative' }
+    if (isFullRange && jsonMetrics && profileMap[key] && jsonMetrics[profileMap[key]]) {
+      const jm = jsonMetrics[profileMap[key]]
+      if (jm.sharpe_ratio != null) sharpe = jm.sharpe_ratio
+      if (jm.max_drawdown != null) maxDD = jm.max_drawdown * 100
+    }
+
     results[key] = { cagr: Math.round(cagr * 10) / 10, totalReturn: Math.round(totalReturn), maxDD: Math.round(maxDD * 10) / 10, sharpe: Math.round(sharpe * 1000) / 1000, startVal: Math.round(startVal), endVal: Math.round(endVal) }
   })
   const benchCagr = results['S&P 500'].cagr
@@ -312,6 +322,7 @@ export default function App() {
   const [endIdx, setEndIdx] = useState(0)
   const [fullMergedCurve, setFullMergedCurve] = useState(null)
   const [loadError, setLoadError] = useState(null)
+  const [jsonMetrics, setJsonMetrics] = useState(null)
 
   useEffect(() => {
     fetch('/backtest_output.json')
@@ -320,13 +331,14 @@ export default function App() {
         const merged = buildMergedFromJson(json)
         setFullMergedCurve(merged)
         setEndIdx(merged.length - 1)
+            setJsonMetrics(json.metrics)
       })
       .catch(err => setLoadError(err.message))
   }, [])
 
   const dates = useMemo(() => fullMergedCurve ? fullMergedCurve.map(d => d.date) : [], [fullMergedCurve])
   const curveData = useMemo(() => fullMergedCurve ? getAdjustedCurve(fullMergedCurve, startIdx, inflationAdj) : null, [fullMergedCurve, inflationAdj, startIdx])
-  const metrics = useMemo(() => fullMergedCurve ? calcMetrics(fullMergedCurve, startIdx, endIdx) : null, [fullMergedCurve, startIdx, endIdx])
+  const metrics = useMemo(() => fullMergedCurve ? calcMetrics(fullMergedCurve, startIdx, endIdx, jsonMetrics) : null, [fullMergedCurve, startIdx, endIdx, jsonMetrics])
   const inflMetrics = useMemo(() => (inflationAdj && curveData) ? calcMetrics(curveData, startIdx, endIdx) : metrics, [curveData, inflationAdj, startIdx, endIdx, metrics])
   const tabProps = { metrics: inflMetrics, inflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates }
   const TabContent = { overview: () => <OverviewTab {...tabProps} />, backtest: () => <BacktestTab {...tabProps} />, profiles: () => <ProfilesTab metrics={inflMetrics} inflationAdj={inflationAdj} />, trades: () => <TradesTab />, evolution: () => <EvolutionTab /> }
