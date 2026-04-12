@@ -53,7 +53,7 @@ function normalizeCurveFromStart(data, startIdx) {
   })
 }
 
-function calcMetrics(curveData, startIdx, endIdx, jsonMetrics) {
+function calcMetrics(curveData, startIdx, endIdx, jsonMetrics, jsonTrades, dates) {
   if (startIdx >= endIdx || !curveData || curveData.length === 0) return null
   const normalized = normalizeCurveFromStart(curveData, startIdx)
   const slice = normalized.slice(startIdx, endIdx + 1)
@@ -106,6 +106,34 @@ function calcMetrics(curveData, startIdx, endIdx, jsonMetrics) {
     })
     results['S&P 500'].sharpe = 0.45
     results['S&P 500'].maxDD = 55.0
+  }
+
+  // Trade-based metrics (Win Rate, Profit Factor)
+  const profileTradeMap = { 'Aggressive': 'aggressive', 'Growth': 'growth', 'Conservative': 'conservative' }
+  const startDate = dates ? dates[startIdx] : null
+  const endDate = dates ? dates[endIdx] + '-31' : null
+  keys.forEach(key => {
+    if (!profileTradeMap[key] || !jsonTrades || !jsonTrades[profileTradeMap[key]] || !startDate) {
+      results[key].winRate = null; results[key].profitFactor = null; return
+    }
+    const trades = jsonTrades[profileTradeMap[key]].filter(t => t.exit_date >= startDate && t.exit_date <= endDate)
+    if (trades.length === 0) { results[key].winRate = null; results[key].profitFactor = null; return }
+    const winners = trades.filter(t => t.pnl > 0)
+    const losers = trades.filter(t => t.pnl <= 0)
+    results[key].winRate = Math.round(winners.length / trades.length * 1000) / 10
+    const winSum = winners.reduce((s, t) => s + t.pnl, 0)
+    const loseSum = Math.abs(losers.reduce((s, t) => s + t.pnl, 0))
+    results[key].profitFactor = loseSum > 0 ? Math.round(winSum / loseSum * 1000) / 1000 : null
+  })
+  results['S&P 500'].winRate = null; results['S&P 500'].profitFactor = null
+
+  // Full-range override with confirmed JSON win_rate and profit_factor
+  if (isFullRange && jsonMetrics) {
+    ;['Aggressive', 'Growth', 'Conservative'].forEach(key => {
+      const jm = jsonMetrics[profileTradeMap[key]]
+      if (jm && jm.win_rate != null) results[key].winRate = Math.round(jm.win_rate * 1000) / 10
+      if (jm && jm.profit_factor != null) results[key].profitFactor = Math.round(jm.profit_factor * 1000) / 1000
+    })
   }
   return results
 }
@@ -411,7 +439,8 @@ function BacktestTab({ metrics, inflationAdj, setInflationAdj, curveData, startI
     { key: 'Annualized Volatility', a: `${m.Aggressive.annualVol}%`, g: `${m.Growth.annualVol}%`, c: `${m.Conservative.annualVol}%`, b: `${m['S&P 500'].annualVol}%`, d: 'Portfolio return variability' },
     { key: 'Max Drawdown', a: `${m.Aggressive.maxDD}%`, g: `${m.Growth.maxDD}%`, c: `${m.Conservative.maxDD}%`, b: `${m['S&P 500'].maxDD}%`, d: 'Largest peak-to-trough decline' },
     { key: 'Alpha vs S&P 500 (SPY)', a: `${m.Aggressive.alpha}%`, g: `${m.Growth.alpha}%`, c: `${m.Conservative.alpha}%`, b: '0%', d: 'Excess return over benchmark' },
-    { key: 'Win Rate', a: `${BASE_PROFILES.aggressive.winRate}%`, g: `${BASE_PROFILES.growth.winRate}%`, c: `${BASE_PROFILES.conservative.winRate}%`, b: '—', d: 'Profitable trade percentage' },
+    { key: 'Win Rate', a: m.Aggressive.winRate != null ? `${m.Aggressive.winRate}%` : '—', g: m.Growth.winRate != null ? `${m.Growth.winRate}%` : '—', c: m.Conservative.winRate != null ? `${m.Conservative.winRate}%` : '—', b: '—', d: 'Profitable trade percentage' },
+    { key: 'Profit Factor', a: m.Aggressive.profitFactor != null ? m.Aggressive.profitFactor.toFixed(3) : '—', g: m.Growth.profitFactor != null ? m.Growth.profitFactor.toFixed(3) : '—', c: m.Conservative.profitFactor != null ? m.Conservative.profitFactor.toFixed(3) : '—', b: '—', d: 'Gross profit / gross loss' },
     { key: 'Total Return', a: `${m.Aggressive.totalReturn.toLocaleString()}%`, g: `${m.Growth.totalReturn.toLocaleString()}%`, c: `${m.Conservative.totalReturn.toLocaleString()}%`, b: `${m['S&P 500'].totalReturn.toLocaleString()}%`, d: `$100K over ${years} yrs` },
     { key: 'End Value', a: fmtVal(m.Aggressive.endVal), g: fmtVal(m.Growth.endVal), c: fmtVal(m.Conservative.endVal), b: fmtVal(m['S&P 500'].endVal), d: "Final Value (Today's Dollars)" },
     { key: 'Positions', a: '10', g: '12', c: '15', b: '500', d: 'Concurrent holdings' },
@@ -437,7 +466,7 @@ function BacktestTab({ metrics, inflationAdj, setInflationAdj, curveData, startI
                 <div><div className="text-[10px] text-slate-500 uppercase">CAGR</div><div className="font-mono text-sm font-semibold" style={{ color: p.color }}>{pm ? pm.cagr : '—'}%</div></div>
                 <div><div className="text-[10px] text-slate-500 uppercase">Sharpe</div><div className="font-mono text-sm font-semibold">{pm ? pm.sharpe.toFixed(3) : '—'}</div></div>
                 <div><div className="text-[10px] text-slate-500 uppercase">Max DD</div><div className="font-mono text-sm font-semibold text-slate-300">{pm ? pm.maxDD : '—'}%</div></div>
-                <div><div className="text-[10px] text-slate-500 uppercase">Win Rate</div><div className="font-mono text-sm font-semibold">{p.winRate ? p.winRate + '%' : '—'}</div></div>
+                <div><div className="text-[10px] text-slate-500 uppercase">Win Rate</div><div className="font-mono text-sm font-semibold">{pm && pm.winRate != null ? pm.winRate + '%' : '—'}</div></div>
               </div>
             </Card>
           )
@@ -489,7 +518,7 @@ function ProfilesTab({ metrics, inflationAdj }) {
   const radarData = m ? [
     { metric: 'CAGR', Aggressive: m.Aggressive.cagr, Growth: m.Growth.cagr, Conservative: m.Conservative.cagr, max: Math.max(m.Aggressive.cagr, 45) },
     { metric: 'Sharpe', Aggressive: m.Aggressive.sharpe * 20, Growth: m.Growth.sharpe * 20, Conservative: m.Conservative.sharpe * 20, max: 30 },
-    { metric: 'Win Rate', Aggressive: BASE_PROFILES.aggressive.winRate, Growth: BASE_PROFILES.growth.winRate, Conservative: BASE_PROFILES.conservative.winRate, max: 80 },
+    { metric: 'Win Rate', Aggressive: m.Aggressive.winRate || 0, Growth: m.Growth.winRate || 0, Conservative: m.Conservative.winRate || 0, max: 80 },
     { metric: 'Alpha', Aggressive: Math.max(0, m.Aggressive.alpha), Growth: Math.max(0, m.Growth.alpha), Conservative: Math.max(0, m.Conservative.alpha), max: Math.max(m.Aggressive.alpha || 1, 40) },
     { metric: 'DD Control', Aggressive: (100 - m.Aggressive.maxDD), Growth: (100 - m.Growth.maxDD), Conservative: (100 - m.Conservative.maxDD), max: 100 },
   ].map(d => ({ ...d, Aggressive: (d.Aggressive / d.max) * 100, Growth: (d.Growth / d.max) * 100, Conservative: (d.Conservative / d.max) * 100 })) : []
@@ -573,6 +602,7 @@ export default function App() {
   const [fullMergedCurve, setFullMergedCurve] = useState(null)
   const [loadError, setLoadError] = useState(null)
   const [jsonMetrics, setJsonMetrics] = useState(null)
+  const [jsonTrades, setJsonTrades] = useState(null)
   const [liveData, setLiveData] = useState(null)
 
   useEffect(() => {
@@ -583,6 +613,7 @@ export default function App() {
         setFullMergedCurve(merged)
         setEndIdx(merged.length - 1)
             setJsonMetrics(json.metrics)
+            if (json.trades) setJsonTrades(json.trades)
       })
       .catch(err => setLoadError(err.message))
   }, [])
@@ -596,8 +627,8 @@ export default function App() {
 
   const dates = useMemo(() => fullMergedCurve ? fullMergedCurve.map(d => d.date) : [], [fullMergedCurve])
   const curveData = useMemo(() => fullMergedCurve ? getAdjustedCurve(fullMergedCurve, startIdx, inflationAdj) : null, [fullMergedCurve, inflationAdj, startIdx])
-  const metrics = useMemo(() => fullMergedCurve ? calcMetrics(fullMergedCurve, startIdx, endIdx, jsonMetrics) : null, [fullMergedCurve, startIdx, endIdx, jsonMetrics])
-  const inflMetrics = useMemo(() => (inflationAdj && curveData) ? calcMetrics(curveData, startIdx, endIdx) : metrics, [curveData, inflationAdj, startIdx, endIdx, metrics])
+  const metrics = useMemo(() => fullMergedCurve ? calcMetrics(fullMergedCurve, startIdx, endIdx, jsonMetrics, jsonTrades, dates) : null, [fullMergedCurve, startIdx, endIdx, jsonMetrics, jsonTrades, dates])
+  const inflMetrics = useMemo(() => (inflationAdj && curveData) ? calcMetrics(curveData, startIdx, endIdx, null, jsonTrades, dates) : metrics, [curveData, inflationAdj, startIdx, endIdx, metrics, jsonTrades, dates])
   const tabProps = { metrics: inflMetrics, inflationAdj, setInflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates }
   const TabContent = { overview: () => <OverviewTab {...tabProps} liveData={liveData} />, backtest: () => <BacktestTab {...tabProps} />, profiles: () => <ProfilesTab metrics={inflMetrics} inflationAdj={inflationAdj} />, trades: () => <TradesTab />, evolution: () => <EvolutionTab /> }
   return (
