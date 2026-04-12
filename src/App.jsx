@@ -216,20 +216,22 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
       fetch('/api/history?profile=aggressive&period=' + historyPeriod + '&timeframe=1D').then(r => r.ok ? r.json() : null),
       fetch('/api/history?profile=growth&period=' + historyPeriod + '&timeframe=1D').then(r => r.ok ? r.json() : null),
       fetch('/api/history?profile=conservative&period=' + historyPeriod + '&timeframe=1D').then(r => r.ok ? r.json() : null),
+      fetch('/api/benchmark?period=' + historyPeriod + '&timeframe=1D').then(r => r.ok ? r.json() : null),
     ])
       .then(function(results) {
-        var agg = results[0], gro = results[1], con = results[2]
+        var agg = results[0], gro = results[1], con = results[2], bench = results[3]
         var dateMap = {}
-        function addPoints(data, key) {
+        function addPoints(data, key, field) {
           if (!data || !data.points) return
           data.points.forEach(function(p) {
             if (!dateMap[p.date]) dateMap[p.date] = { date: p.date }
-            dateMap[p.date][key] = Math.max(0, p.equity || 0)
+            dateMap[p.date][key] = Math.max(0, p[field] || 0)
           })
         }
-        addPoints(agg, 'aggressive')
-        addPoints(gro, 'growth')
-        addPoints(con, 'conservative')
+        addPoints(agg, 'aggressive', 'equity')
+        addPoints(gro, 'growth', 'equity')
+        addPoints(con, 'conservative', 'equity')
+        addPoints(bench, 'spy', 'spy')
         var merged = Object.values(dateMap).sort(function(a, b) { return a.date.localeCompare(b.date) })
         setHistoryData(merged)
         setHistoryLoading(false)
@@ -303,6 +305,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
                 <Area type="monotone" dataKey="aggressive" stroke="#f97316" strokeWidth={2} fill="url(#grad-agg)" dot={false} name="Aggressive" />
                 <Area type="monotone" dataKey="growth" stroke="#10b981" strokeWidth={2} fill="url(#grad-gro)" dot={false} name="Growth" />
                 <Area type="monotone" dataKey="conservative" stroke="#3b82f6" strokeWidth={2} fill="url(#grad-con)" dot={false} name="Conservative" />
+                <Area type="monotone" dataKey="spy" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 3" fill="none" dot={false} name="S&P 500" />
                 <Legend />
               </AreaChart>
             </ResponsiveContainer>
