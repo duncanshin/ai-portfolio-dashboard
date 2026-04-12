@@ -195,7 +195,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
   const [historyData, setHistoryData] = useState(null)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [isCustomRange, setIsCustomRange] = useState(false)
-  const [customStart, setCustomStart] = useState('2026-04-13')
+  const [customStart, setCustomStart] = useState('2026-04-08')
   const [customEnd, setCustomEnd] = useState(new Date().toISOString().split('T')[0])
 
   const HISTORY_PERIODS = [
@@ -213,7 +213,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
     { key: 'conservative', name: 'Conservative', color: '#3b82f6', textColor: 'text-blue-400', bgBadge: 'text-blue-400 bg-blue-400/10' },
   ]
 
-  const DEFAULT_START_DATE = '2026-04-13'
+  const DEFAULT_START_DATE = '2026-04-08'
   const chartData = historyData ? historyData.filter(function(d) {
     var startFilter = isCustomRange ? customStart : DEFAULT_START_DATE
     var endFilter = isCustomRange ? customEnd : '9999-12-31'
