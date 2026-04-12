@@ -224,11 +224,12 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
     setHistoryLoading(true)
     var dateParams = isCustomRange ? '&start=' + customStart + '&end=' + customEnd : ''
     var periodParam = isCustomRange ? 'all' : historyPeriod
+    var safeFetch = function(url) { return fetch(url).then(function(r) { return r.ok ? r.json() : null }).catch(function() { return null }) }
     Promise.all([
-      fetch('/api/history?profile=aggressive&period=' + periodParam + '&timeframe=1D' + dateParams).then(r => r.ok ? r.json() : null),
-      fetch('/api/history?profile=growth&period=' + periodParam + '&timeframe=1D' + dateParams).then(r => r.ok ? r.json() : null),
-      fetch('/api/history?profile=conservative&period=' + periodParam + '&timeframe=1D' + dateParams).then(r => r.ok ? r.json() : null),
-      fetch('/api/benchmark?period=' + periodParam + '&timeframe=1D' + dateParams).then(r => r.ok ? r.json() : null),
+      safeFetch('/api/history?profile=aggressive&period=' + periodParam + '&timeframe=1D' + dateParams),
+      safeFetch('/api/history?profile=growth&period=' + periodParam + '&timeframe=1D' + dateParams),
+      safeFetch('/api/history?profile=conservative&period=' + periodParam + '&timeframe=1D' + dateParams),
+      safeFetch('/api/benchmark?period=' + periodParam + '&timeframe=1D' + dateParams),
     ])
       .then(function(results) {
         var agg = results[0], gro = results[1], con = results[2], bench = results[3]

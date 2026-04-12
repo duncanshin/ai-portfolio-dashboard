@@ -36,7 +36,8 @@ export default async function handler(req, res) {
 
     // Fetch SPY bars from Alpaca market data API
     const tf = timeframe === '15Min' ? '15Min' : '1Day';
-    const url = `${dataUrl}/v2/stocks/SPY/bars?timeframe=${tf}&start=${startDate}&end=${endDate}&limit=10000&adjustment=split&feed=sip`;
+    const feed = process.env.ALPACA_DATA_FEED || 'iex';
+    const url = `${dataUrl}/v2/stocks/SPY/bars?timeframe=${tf}&start=${startDate}&end=${endDate}&limit=10000&adjustment=split&feed=${feed}`;
     const response = await fetch(url, { headers });
 
     if (!response.ok) {
