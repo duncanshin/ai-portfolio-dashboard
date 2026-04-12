@@ -117,9 +117,10 @@ const TABS = [
 function Card({ children, className = '', glow }) {
   return <div className={`rounded-xl border border-white/[0.06] bg-[#0f1420] p-5 ${className}`} style={glow ? { boxShadow: `0 0 40px -12px ${glow}` } : {}}>{children}</div>
 }
-function StatusPill({ status, text }) {
-  const colors = { live: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', waiting: 'bg-amber-500/10 text-amber-400 border-amber-500/20' }
-  return <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${colors[status]}`}><span className={`w-1.5 h-1.5 rounded-full ${status === 'live' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />{text}</span>
+function StatusPill({ status, text, onClick }) {
+  const colors = { live: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', waiting: 'bg-amber-500/10 text-amber-400 border-amber-500/20', paused: 'bg-red-500/10 text-red-400 border-red-500/20' }
+  const dotColors = { live: 'bg-emerald-400 animate-pulse', waiting: 'bg-amber-400', paused: 'bg-red-400' }
+  return <span onClick={onClick} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${colors[status]} ${onClick ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}><span className={`w-1.5 h-1.5 rounded-full ${dotColors[status]}`} />{text}</span>
 }
 function InflationToggle({ inflationAdj, setInflationAdj }) {
   return <button onClick={() => setInflationAdj(!inflationAdj)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${inflationAdj ? 'bg-purple-500/15 text-purple-300 border-purple-500/30' : 'bg-white/[0.03] text-slate-400 border-white/[0.08] hover:border-white/[0.15]'}`}>{inflationAdj ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}{inflationAdj ? 'Real' : 'Nominal'}</button>
@@ -511,6 +512,7 @@ function EvolutionTab() {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('overview')
+  const [systemActive, setSystemActive] = useState(true)
   const [inflationAdj, setInflationAdj] = useState(false)
   const [startIdx, setStartIdx] = useState(0)
   const [endIdx, setEndIdx] = useState(0)
@@ -549,7 +551,7 @@ export default function App() {
       <header className="border-b border-white/[0.06] bg-[#0a0e17]/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center"><TrendingUp size={16} className="text-white" /></div><div><div className="font-bold text-sm tracking-tight">AI Portfolio System</div><div className="text-[10px] text-slate-500">Duncan Shin — Quantitative Strategy</div></div></div>
-          <div className="flex items-center gap-4"><div className="text-right mr-2"><div className="text-xs text-slate-500">Duncan's Wealth Portfolio</div><div className="font-mono text-sm font-bold text-emerald-400">{liveData && liveData.summary ? "$" + liveData.summary.totalValue.toLocaleString() : "..."}</div></div><StatusPill status="live" text="System Active" /></div>
+          <div className="flex items-center gap-4"><div className="text-right mr-2"><div className="text-xs text-slate-500">Duncan's Wealth Portfolio</div><div className="font-mono text-sm font-bold text-emerald-400">{liveData && liveData.summary ? "$" + liveData.summary.totalValue.toLocaleString() : "..."}</div></div><StatusPill status={systemActive ? 'live' : 'paused'} text={systemActive ? 'System Active' : 'System Paused'} onClick={function() { setSystemActive(!systemActive) }} /></div>
         </div>
       </header>
       <nav className="border-b border-white/[0.06]"><div className="max-w-7xl mx-auto px-6 flex gap-1">{TABS.map(tab => { const Icon = tab.icon; const active = activeTab === tab.id; return <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${active ? 'border-emerald-500 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}><Icon size={14} />{tab.label}</button> })}</div></nav>
