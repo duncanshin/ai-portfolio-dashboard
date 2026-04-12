@@ -82,7 +82,14 @@ function calcMetrics(curveData, startIdx, endIdx, jsonMetrics) {
       if (jm.max_drawdown != null) maxDD = jm.max_drawdown * 100
     }
 
-    results[key] = { cagr: Math.round(cagr * 10) / 10, totalReturn: Math.round(totalReturn), maxDD: Math.round(maxDD * 10) / 10, sharpe: Math.round(sharpe * 1000) / 1000, startVal: Math.round(startVal), endVal: Math.round(endVal) }
+    let annualVol = Math.round(stdDev * Math.sqrt(12) * 1000) / 10
+    if (isFullRange && jsonMetrics) {
+      const profileMap2 = { 'Aggressive': 'aggressive', 'Growth': 'growth', 'Conservative': 'conservative' }
+      if (profileMap2[key] && jsonMetrics[profileMap2[key]] && jsonMetrics[profileMap2[key]].annual_volatility != null) {
+        annualVol = Math.round(jsonMetrics[profileMap2[key]].annual_volatility * 1000) / 10
+      }
+    }
+    results[key] = { cagr: Math.round(cagr * 10) / 10, totalReturn: Math.round(totalReturn), maxDD: Math.round(maxDD * 10) / 10, sharpe: Math.round(sharpe * 1000) / 1000, annualVol, startVal: Math.round(startVal), endVal: Math.round(endVal) }
   })
   const benchCagr = results['S&P 500'].cagr
   ;['Aggressive', 'Growth', 'Conservative'].forEach(key => { results[key].alpha = Math.round((results[key].cagr - benchCagr) * 10) / 10 })
@@ -401,6 +408,7 @@ function BacktestTab({ metrics, inflationAdj, setInflationAdj, curveData, startI
   const rows = m ? [
     { key: 'CAGR', a: `${m.Aggressive.cagr}%`, g: `${m.Growth.cagr}%`, c: `${m.Conservative.cagr}%`, b: `${m['S&P 500'].cagr}%`, d: 'Compound annual growth rate' },
     { key: 'Sharpe Ratio', a: m.Aggressive.sharpe.toFixed(3), g: m.Growth.sharpe.toFixed(3), c: m.Conservative.sharpe.toFixed(3), b: m['S&P 500'].sharpe.toFixed(3), d: 'Risk-adjusted return' },
+    { key: 'Annualized Volatility', a: `${m.Aggressive.annualVol}%`, g: `${m.Growth.annualVol}%`, c: `${m.Conservative.annualVol}%`, b: `${m['S&P 500'].annualVol}%`, d: 'Portfolio return variability' },
     { key: 'Max Drawdown', a: `${m.Aggressive.maxDD}%`, g: `${m.Growth.maxDD}%`, c: `${m.Conservative.maxDD}%`, b: `${m['S&P 500'].maxDD}%`, d: 'Largest peak-to-trough decline' },
     { key: 'Alpha vs S&P 500 (SPY)', a: `${m.Aggressive.alpha}%`, g: `${m.Growth.alpha}%`, c: `${m.Conservative.alpha}%`, b: '0%', d: 'Excess return over benchmark' },
     { key: 'Win Rate', a: `${BASE_PROFILES.aggressive.winRate}%`, g: `${BASE_PROFILES.growth.winRate}%`, c: `${BASE_PROFILES.conservative.winRate}%`, b: '—', d: 'Profitable trade percentage' },
