@@ -251,6 +251,12 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
         addPoints(con, 'conservative', 'equity')
         addPoints(bench, 'spy', 'spy')
         var merged = Object.values(dateMap).sort(function(a, b) { return a.date.localeCompare(b.date) })
+        // Extend to today if data ends before the current date
+        var today = new Date().toISOString().split('T')[0]
+        if (merged.length > 0 && merged[merged.length - 1].date < today) {
+          var last = merged[merged.length - 1]
+          merged.push({ date: today, aggressive: last.aggressive, growth: last.growth, conservative: last.conservative, spy: last.spy })
+        }
         setHistoryData(merged)
         setHistoryLoading(false)
       })
