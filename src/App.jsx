@@ -194,6 +194,9 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
   const [historyPeriod, setHistoryPeriod] = useState('1M')
   const [historyData, setHistoryData] = useState(null)
   const [historyLoading, setHistoryLoading] = useState(false)
+  const [isCustomRange, setIsCustomRange] = useState(false)
+  const [customStart, setCustomStart] = useState('2026-04-13')
+  const [customEnd, setCustomEnd] = useState(new Date().toISOString().split('T')[0])
 
   const HISTORY_PERIODS = [
     { label: '1W', value: '1W' },
@@ -211,15 +214,21 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
   ]
 
   const DEFAULT_START_DATE = '2026-04-13'
-  const chartData = historyData ? historyData.filter(function(d) { return d.date >= DEFAULT_START_DATE }) : null
+  const chartData = historyData ? historyData.filter(function(d) {
+    var startFilter = isCustomRange ? customStart : DEFAULT_START_DATE
+    var endFilter = isCustomRange ? customEnd : '9999-12-31'
+    return d.date >= startFilter && d.date <= endFilter
+  }) : null
 
   useEffect(() => {
     setHistoryLoading(true)
+    var dateParams = isCustomRange ? '&start=' + customStart + '&end=' + customEnd : ''
+    var periodParam = isCustomRange ? 'all' : historyPeriod
     Promise.all([
-      fetch('/api/history?profile=aggressive&period=' + historyPeriod + '&timeframe=1D').then(r => r.ok ? r.json() : null),
-      fetch('/api/history?profile=growth&period=' + historyPeriod + '&timeframe=1D').then(r => r.ok ? r.json() : null),
-      fetch('/api/history?profile=conservative&period=' + historyPeriod + '&timeframe=1D').then(r => r.ok ? r.json() : null),
-      fetch('/api/benchmark?period=' + historyPeriod + '&timeframe=1D').then(r => r.ok ? r.json() : null),
+      fetch('/api/history?profile=aggressive&period=' + periodParam + '&timeframe=1D' + dateParams).then(r => r.ok ? r.json() : null),
+      fetch('/api/history?profile=growth&period=' + periodParam + '&timeframe=1D' + dateParams).then(r => r.ok ? r.json() : null),
+      fetch('/api/history?profile=conservative&period=' + periodParam + '&timeframe=1D' + dateParams).then(r => r.ok ? r.json() : null),
+      fetch('/api/benchmark?period=' + periodParam + '&timeframe=1D' + dateParams).then(r => r.ok ? r.json() : null),
     ])
       .then(function(results) {
         var agg = results[0], gro = results[1], con = results[2], bench = results[3]
@@ -240,7 +249,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
         setHistoryLoading(false)
       })
       .catch(function() { setHistoryLoading(false) })
-  }, [historyPeriod])
+  }, [historyPeriod, isCustomRange, customStart, customEnd])
 
   var profiles = liveData && liveData.profiles ? liveData.profiles : null
   var summary = liveData && liveData.summary ? liveData.summary : null
@@ -284,11 +293,22 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
         <Card>
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-semibold text-sm">Equity Curves</h3>
-            <div className="flex gap-1">
+            <div className="flex items-center gap-1">
               {HISTORY_PERIODS.map(function(p) { return (
-                <button key={p.value} onClick={function() { setHistoryPeriod(p.value) }}
-                  className={'px-2.5 py-1 rounded text-xs font-medium transition-all ' + (historyPeriod === p.value ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300')}>{p.label}</button>
+                <button key={p.value} onClick={function() { setIsCustomRange(false); setHistoryPeriod(p.value) }}
+                  className={'px-2.5 py-1 rounded text-xs font-medium transition-all ' + (!isCustomRange && historyPeriod === p.value ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300')}>{p.label}</button>
               )})}
+              <button onClick={function() { setIsCustomRange(true) }}
+                className={'px-2.5 py-1 rounded text-xs font-medium transition-all ' + (isCustomRange ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300')}>Custom</button>
+              {isCustomRange && (
+                <div className="flex items-center gap-1.5 ml-2">
+                  <input type="date" value={customStart} onChange={function(e) { setCustomStart(e.target.value) }}
+                    className="bg-white/[0.04] border border-white/[0.08] rounded px-2 py-0.5 text-xs text-slate-300 focus:outline-none focus:border-emerald-500/40" />
+                  <span className="text-slate-600 text-xs">to</span>
+                  <input type="date" value={customEnd} onChange={function(e) { setCustomEnd(e.target.value) }}
+                    className="bg-white/[0.04] border border-white/[0.08] rounded px-2 py-0.5 text-xs text-slate-300 focus:outline-none focus:border-emerald-500/40" />
+                </div>
+              )}
             </div>
           </div>
           {historyLoading ? (
