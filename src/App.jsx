@@ -364,7 +364,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
               { label: 'S&P 500', color: '#94a3b8', dashed: true },
             ].map(function(item) { return (
               <div key={item.label} className="flex items-center gap-1.5">
-                <svg width="14" height="3"><line x1="0" y1="1.5" x2="14" y2="1.5" stroke={item.color} strokeWidth="2" strokeDasharray={item.dashed ? '3 2' : 'none'} /></svg>
+                <svg width="16" height="3"><line x1="0" y1="1.5" x2="16" y2="1.5" stroke={item.color} strokeWidth="2" strokeDasharray={item.dashed ? '5 3' : 'none'} /></svg>
                 <span className="text-[10px] text-slate-500">{item.label}</span>
               </div>
             )})}
@@ -428,7 +428,7 @@ function BacktestTab({ metrics, inflationAdj, setInflationAdj, curveData, startI
               { label: 'S&P 500', color: '#94a3b8', dashed: true },
             ].map(item => (
               <div key={item.label} className="flex items-center gap-1.5">
-                <svg width="14" height="3"><line x1="0" y1="1.5" x2="14" y2="1.5" stroke={item.color} strokeWidth="2" strokeDasharray={item.dashed ? '3 2' : 'none'} /></svg>
+                <svg width="16" height="3"><line x1="0" y1="1.5" x2="16" y2="1.5" stroke={item.color} strokeWidth="2" strokeDasharray={item.dashed ? '5 3' : 'none'} /></svg>
                 <span className="text-[10px] text-slate-400">{item.label}</span>
               </div>
             ))}
