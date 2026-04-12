@@ -404,9 +404,10 @@ function BacktestTab({ metrics, inflationAdj, setInflationAdj, curveData, startI
         })}
       </div>
       <Card>
+        <div className="mb-3"><h3 className="font-semibold text-sm mb-2">Select Time Period</h3></div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-sm">Select Time Period</h3>
-          <div className="flex items-center gap-3 px-3 py-1.5 rounded-lg border border-white/[0.06] bg-[#0c1019]">
+          <div className="flex-1"><DateRangeSelector startIdx={startIdx} endIdx={endIdx} setStartIdx={setStartIdx} setEndIdx={setEndIdx} dates={dates} onCrisisShade={setCrisisShade} /></div>
+          <div className="flex items-center gap-3 px-3 py-1.5 rounded-lg border border-white/[0.06] bg-[#0c1019] ml-3 shrink-0">
             {[
               { label: 'Aggressive', color: '#f97316' },
               { label: 'Growth', color: '#10b981' },
@@ -420,7 +421,6 @@ function BacktestTab({ metrics, inflationAdj, setInflationAdj, curveData, startI
             ))}
           </div>
         </div>
-        <div className="mb-3"><DateRangeSelector startIdx={startIdx} endIdx={endIdx} setStartIdx={setStartIdx} setEndIdx={setEndIdx} dates={dates} onCrisisShade={setCrisisShade} /></div>
         <EquityCurveChart data={curveData} startIdx={startIdx} endIdx={endIdx} height={360} crisisShade={crisisShade} />
       </Card>
       <Card><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-white/[0.06]"><th className="text-left py-3 px-3 text-xs text-slate-500 uppercase font-medium">Metric</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#f97316' }}>Aggressive</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#10b981' }}>Growth</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#3b82f6' }}>Conservative</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: BASE_PROFILES.benchmark.color }}>S&P 500</th></tr></thead>
