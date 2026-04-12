@@ -210,6 +210,9 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
     { key: 'conservative', name: 'Conservative', color: '#3b82f6', textColor: 'text-blue-400', bgBadge: 'text-blue-400 bg-blue-400/10' },
   ]
 
+  const DEFAULT_START_DATE = '2026-04-13'
+  const chartData = historyData ? historyData.filter(function(d) { return d.date >= DEFAULT_START_DATE }) : null
+
   useEffect(() => {
     setHistoryLoading(true)
     Promise.all([
@@ -290,9 +293,9 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
           </div>
           {historyLoading ? (
             <div className="h-64 flex items-center justify-center text-slate-500">Loading...</div>
-          ) : historyData && historyData.length > 0 ? (
+          ) : chartData && chartData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={historyData}>
+              <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="grad-agg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f97316" stopOpacity={0.15} /><stop offset="100%" stopColor="#f97316" stopOpacity={0} /></linearGradient>
                   <linearGradient id="grad-gro" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity={0.15} /><stop offset="100%" stopColor="#10b981" stopOpacity={0} /></linearGradient>
