@@ -332,7 +332,6 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
                 <Area type="monotone" dataKey="growth" stroke="#10b981" strokeWidth={2} fill="url(#grad-gro)" dot={false} name="Growth" />
                 <Area type="monotone" dataKey="conservative" stroke="#3b82f6" strokeWidth={2} fill="url(#grad-con)" dot={false} name="Conservative" />
                 <Area type="monotone" dataKey="spy" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 3" fill="none" dot={false} name="S&P 500" />
-                <Legend />
               </AreaChart>
             </ResponsiveContainer>
           ) : (
@@ -344,8 +343,18 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
               </div>
             </div>
           )}
-          <div className="flex gap-3 mt-3">
-            {PROFILE_CONFIG.map(function(cfg) { return <span key={cfg.key} className={cfg.bgBadge + ' px-2 py-0.5 rounded text-xs'}>{cfg.name}</span> })}
+          <div className="flex items-center justify-center gap-4 mt-3 py-2 px-4 rounded-lg border border-white/[0.06] bg-white/[0.02]">
+            {[
+              { label: 'Aggressive', color: '#f97316' },
+              { label: 'Growth', color: '#10b981' },
+              { label: 'Conservative', color: '#3b82f6' },
+              { label: 'S&P 500', color: '#94a3b8', dashed: true },
+            ].map(function(item) { return (
+              <div key={item.label} className="flex items-center gap-1.5">
+                <span className="w-3 h-0.5 rounded-full" style={{ background: item.color, borderTop: item.dashed ? '1px dashed ' + item.color : 'none' }} />
+                <span className="text-[10px] text-slate-500">{item.label}</span>
+              </div>
+            )})}
           </div>
         </Card>
       </div>
