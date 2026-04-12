@@ -213,9 +213,9 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
   ]
 
   const PROFILE_CONFIG = [
-    { key: 'aggressive', name: 'Aggressive', color: '#f97316', textColor: 'text-orange-500', bgBadge: 'text-orange-500 bg-orange-500/10' },
-    { key: 'growth', name: 'Growth', color: '#10b981', textColor: 'text-emerald-400', bgBadge: 'text-emerald-400 bg-emerald-400/10' },
-    { key: 'conservative', name: 'Conservative', color: '#3b82f6', textColor: 'text-blue-400', bgBadge: 'text-blue-400 bg-blue-400/10' },
+    { key: 'aggressive', name: 'Aggressive', color: '#f97316', textColor: 'text-orange-500', bgBadge: 'text-orange-500 bg-orange-500/10', icon: Zap },
+    { key: 'growth', name: 'Growth', color: '#10b981', textColor: 'text-emerald-400', bgBadge: 'text-emerald-400 bg-emerald-400/10', icon: TrendingUp },
+    { key: 'conservative', name: 'Conservative', color: '#3b82f6', textColor: 'text-blue-400', bgBadge: 'text-blue-400 bg-blue-400/10', icon: Shield },
   ]
 
   const DEFAULT_START_DATE = '2026-04-08'
@@ -294,7 +294,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
           var connected = p && p.connected
           return (
             <Card key={cfg.key}>
-              <div className={'font-semibold text-base mb-4 ' + cfg.textColor}>{cfg.name}</div>
+              <div className="flex items-center gap-2 mb-4"><div className="p-1.5 rounded-lg" style={{ background: cfg.color + '14' }}><cfg.icon size={14} style={{ color: cfg.color }} /></div><span className={'font-semibold text-base ' + cfg.textColor}>{cfg.name}</span></div>
               <div className="grid grid-cols-2 gap-3">
                 <div><div className="text-[10px] text-slate-500 uppercase mb-1">Portfolio Value</div><div className="font-mono text-sm font-semibold">{connected ? '$' + p.portfolioValue.toLocaleString() : '$100,000'}</div></div>
                 <div><div className="text-[10px] text-slate-500 uppercase mb-1">Today's Return</div><div className={'font-mono text-sm font-semibold ' + (connected && p.todayReturn >= 0 ? 'text-emerald-400' : connected ? 'text-red-400' : 'text-slate-500')}>{connected ? (p.todayReturn >= 0 ? '+' : '') + '$' + p.todayReturn.toFixed(2) : '+$0.00'}</div></div>
