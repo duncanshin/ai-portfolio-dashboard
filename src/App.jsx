@@ -190,14 +190,15 @@ function EquityCurveChart({ data, startIdx, endIdx, height = 340 }) {
   )
 }
 
-function OverviewTab({ metrics, inflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates }) {
+function OverviewTab({ metrics, inflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates, liveData }) {
   const profileKeys = ['aggressive', 'growth', 'conservative']
   const metricNames = { aggressive: 'Aggressive', growth: 'Growth', conservative: 'Conservative' }
+  const isLive = liveData && liveData.timestamp && (Date.now() - new Date(liveData.timestamp).getTime() < 30 * 60 * 1000)
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div><h2 className="text-lg font-semibold">System Performance</h2><p className="text-sm text-slate-500">AI Portfolio Management System v4.0 · Data through April 2026</p></div>
-        <div className="flex gap-3"><StatusPill status="waiting" text="Paper Trading Ready" /><StatusPill status="live" text="Phase 7 In Progress" /></div>
+        <div className="flex gap-3"><StatusPill status={isLive ? 'live' : 'waiting'} text="Paper Trading Ready" /><StatusPill status="live" text="Phase 7 In Progress" /></div>
       </div>
       <div className="grid grid-cols-3 gap-4">
         {[
@@ -210,22 +211,22 @@ function OverviewTab({ metrics, inflationAdj, curveData, startIdx, endIdx, setSt
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <div className="text-[10px] text-slate-500 uppercase mb-1">Portfolio Value</div>
-                <div className="font-mono text-sm font-semibold">$33,333</div>
+                <div className="font-mono text-sm font-semibold">{liveData ? `$${liveData.account.portfolio_value.toLocaleString()}` : '$33,333'}</div>
                 <div className="text-xs text-slate-500">+$0.00 today</div>
               </div>
               <div>
                 <div className="text-[10px] text-slate-500 uppercase mb-1">Today's Return</div>
-                <div className="font-mono text-sm font-semibold text-slate-500">0.00%</div>
+                <div className={`font-mono text-sm font-semibold ${liveData ? (liveData.account.daily_pnl >= 0 ? 'text-emerald-400' : 'text-red-400') : 'text-slate-500'}`}>{liveData ? `${liveData.account.daily_pnl >= 0 ? '+' : ''}$${liveData.account.daily_pnl.toFixed(2)}` : '+$0.00 today'}</div>
                 <div className="text-xs text-slate-500">Awaiting first trade</div>
               </div>
               <div>
                 <div className="text-[10px] text-slate-500 uppercase mb-1">Total Return</div>
-                <div className="font-mono text-sm font-semibold text-slate-500">0.00%</div>
+                <div className="font-mono text-sm font-semibold text-slate-500">{liveData ? `${liveData.account.daily_pnl_pct >= 0 ? '+' : ''}${liveData.account.daily_pnl_pct.toFixed(2)}%` : '0.00%'}</div>
                 <div className="text-xs text-slate-500">Since inception</div>
               </div>
               <div>
                 <div className="text-[10px] text-slate-500 uppercase mb-1">Active Positions</div>
-                <div className="font-mono text-sm font-semibold text-slate-500">0</div>
+                <div className="font-mono text-sm font-semibold text-slate-500">{liveData ? `${liveData.active_positions}` : '0'}</div>
                 <div className="text-xs text-slate-500">of {maxPositions}</div>
               </div>
             </div>
@@ -247,7 +248,7 @@ function OverviewTab({ metrics, inflationAdj, curveData, startIdx, endIdx, setSt
           </div>
         </div>
         <div className="flex justify-between items-center py-3 px-4 mt-3 bg-slate-800/30 rounded-lg">
-          <div className="text-sm text-slate-400">Portfolio Value: <span className="text-emerald-400 font-mono">$100,000</span></div>
+          <div className="text-sm text-slate-400">Portfolio Value: <span className="text-emerald-400 font-mono">{liveData ? `$${liveData.account.portfolio_value.toLocaleString()}` : '$100,000'}</span></div>
           <div className="text-sm text-slate-300">Active Profiles: 3</div>
           <div className="flex gap-2">
             <span className="text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded text-xs">Aggressive</span>
@@ -398,6 +399,7 @@ export default function App() {
   const [fullMergedCurve, setFullMergedCurve] = useState(null)
   const [loadError, setLoadError] = useState(null)
   const [jsonMetrics, setJsonMetrics] = useState(null)
+  const [liveData, setLiveData] = useState(null)
 
   useEffect(() => {
     fetch('/backtest_output.json')
@@ -411,12 +413,19 @@ export default function App() {
       .catch(err => setLoadError(err.message))
   }, [])
 
+  useEffect(() => {
+    fetch('/api/portfolio')
+      .then(r => { if (!r.ok) throw new Error('API error'); return r.json() })
+      .then(data => setLiveData(data))
+      .catch(err => console.error('Portfolio fetch failed:', err))
+  }, [])
+
   const dates = useMemo(() => fullMergedCurve ? fullMergedCurve.map(d => d.date) : [], [fullMergedCurve])
   const curveData = useMemo(() => fullMergedCurve ? getAdjustedCurve(fullMergedCurve, startIdx, inflationAdj) : null, [fullMergedCurve, inflationAdj, startIdx])
   const metrics = useMemo(() => fullMergedCurve ? calcMetrics(fullMergedCurve, startIdx, endIdx, jsonMetrics) : null, [fullMergedCurve, startIdx, endIdx, jsonMetrics])
   const inflMetrics = useMemo(() => (inflationAdj && curveData) ? calcMetrics(curveData, startIdx, endIdx) : metrics, [curveData, inflationAdj, startIdx, endIdx, metrics])
   const tabProps = { metrics: inflMetrics, inflationAdj, setInflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates }
-  const TabContent = { overview: () => <OverviewTab {...tabProps} />, backtest: () => <BacktestTab {...tabProps} />, profiles: () => <ProfilesTab metrics={inflMetrics} inflationAdj={inflationAdj} />, trades: () => <TradesTab />, evolution: () => <EvolutionTab /> }
+  const TabContent = { overview: () => <OverviewTab {...tabProps} liveData={liveData} />, backtest: () => <BacktestTab {...tabProps} />, profiles: () => <ProfilesTab metrics={inflMetrics} inflationAdj={inflationAdj} />, trades: () => <TradesTab />, evolution: () => <EvolutionTab /> }
   return (
     <div className="min-h-screen bg-[#0a0e17]">
       <header className="border-b border-white/[0.06] bg-[#0a0e17]/80 backdrop-blur-md sticky top-0 z-50">
