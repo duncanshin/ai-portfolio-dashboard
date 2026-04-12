@@ -293,16 +293,10 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
         <h2 className="text-lg font-semibold">Paper Trading Performance</h2><p className="text-sm text-slate-500 mb-3">Live equity curves from Alpaca paper trading accounts</p>
         <Card>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-sm">Equity Curves</h3>
-            <div className="flex items-center gap-1">
-              {HISTORY_PERIODS.map(function(p) { return (
-                <button key={p.value} onClick={function() { setIsCustomRange(false); setHistoryPeriod(p.value) }}
-                  className={'px-2.5 py-1 rounded text-xs font-medium transition-all ' + (!isCustomRange && historyPeriod === p.value ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300')}>{p.label}</button>
-              )})}
-              <button onClick={function() { setIsCustomRange(true) }}
-                className={'px-2.5 py-1 rounded text-xs font-medium transition-all ' + (isCustomRange ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300')}>Custom</button>
+            <div className="flex items-center gap-3">
+              <h3 className="font-semibold text-sm">Equity Curves</h3>
               {isCustomRange && (
-                <div className="flex items-center gap-1.5 ml-2">
+                <div className="flex items-center gap-1.5">
                   <input type="date" value={customStart} onChange={function(e) { setCustomStart(e.target.value) }}
                     className="bg-white/[0.04] border border-white/[0.08] rounded px-2 py-0.5 text-xs text-slate-300 focus:outline-none focus:border-emerald-500/40" />
                   <span className="text-slate-600 text-xs">to</span>
@@ -310,6 +304,14 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
                     className="bg-white/[0.04] border border-white/[0.08] rounded px-2 py-0.5 text-xs text-slate-300 focus:outline-none focus:border-emerald-500/40" />
                 </div>
               )}
+            </div>
+            <div className="flex items-center gap-1">
+              {HISTORY_PERIODS.map(function(p) { return (
+                <button key={p.value} onClick={function() { setIsCustomRange(false); setHistoryPeriod(p.value) }}
+                  className={'px-2.5 py-1 rounded text-xs font-medium transition-all ' + (!isCustomRange && historyPeriod === p.value ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300')}>{p.label}</button>
+              )})}
+              <button onClick={function() { setIsCustomRange(true) }}
+                className={'px-2.5 py-1 rounded text-xs font-medium transition-all ' + (isCustomRange ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300')}>Adjustable Dates</button>
             </div>
           </div>
           {historyLoading ? (
