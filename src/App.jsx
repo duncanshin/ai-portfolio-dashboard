@@ -251,6 +251,12 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
         addPoints(con, 'conservative', 'equity')
         addPoints(bench, 'spy', 'spy')
         var merged = Object.values(dateMap).sort(function(a, b) { return a.date.localeCompare(b.date) })
+        // Re-normalize SPY so it starts at $100K on the first date with profile data
+        var firstWithProfile = merged.find(function(d) { return d.aggressive || d.growth || d.conservative })
+        if (firstWithProfile && firstWithProfile.spy && firstWithProfile.spy > 0) {
+          var spyBase = firstWithProfile.spy
+          merged.forEach(function(d) { if (d.spy) d.spy = Math.round((d.spy / spyBase) * 100000) })
+        }
         // Extend to today if data ends before the current date
         var today = new Date().toISOString().split('T')[0]
         if (merged.length > 0 && merged[merged.length - 1].date < today) {
