@@ -324,7 +324,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
             </div>
             <div className="flex items-center gap-0.5">
               {HISTORY_PERIODS.map(function(p) { return (
-                <button key={p.value} onClick={function() { setIsCustomRange(false); setHistoryPeriod(p.value); setCustomEnd(new Date().toISOString().split('T')[0]) }}
+                <button key={p.value} onClick={function() { setIsCustomRange(false); setHistoryPeriod(p.value); setCustomStart('2026-04-13'); setCustomEnd(new Date().toISOString().split('T')[0]) }}
                   className={'px-2 py-0.5 rounded text-[10px] font-medium transition-all ' + (!isCustomRange && historyPeriod === p.value ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300')}>{p.label}</button>
               )})}
             </div>
