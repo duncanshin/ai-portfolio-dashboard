@@ -224,7 +224,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
           if (!data || !data.points) return
           data.points.forEach(function(p) {
             if (!dateMap[p.date]) dateMap[p.date] = { date: p.date }
-            dateMap[p.date][key] = p.equity
+            dateMap[p.date][key] = Math.max(0, p.equity || 0)
           })
         }
         addPoints(agg, 'aggressive')
@@ -298,7 +298,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
                 </defs>
                 <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" />
                 <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={function(v) { var parts = v.split('-'); return parseInt(parts[1]) + '/' + parseInt(parts[2]) }} />
-                <YAxis tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={function(v) { return '$' + (v/1000).toFixed(0) + 'k' }} domain={['dataMin - 1000', 'dataMax + 1000']} />
+                <YAxis type="number" tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={function(v) { return v < 0 ? '$0k' : '$' + (v/1000).toFixed(0) + 'k' }} domain={[0, function(dataMax) { return Math.ceil(dataMax / 1000) * 1000 }]} allowDataOverflow={true} />
                 <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }} formatter={function(v) { return ['$' + v.toLocaleString()] }} />
                 <Area type="monotone" dataKey="aggressive" stroke="#f97316" strokeWidth={2} fill="url(#grad-agg)" dot={false} name="Aggressive" />
                 <Area type="monotone" dataKey="growth" stroke="#10b981" strokeWidth={2} fill="url(#grad-gro)" dot={false} name="Growth" />
