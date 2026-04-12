@@ -107,7 +107,7 @@ function getAdjustedCurve(data, startIdx, inflationAdj) {
 }
 
 const TABS = [
-  { id: 'overview', label: 'Overview', icon: Activity },
+  { id: 'overview', label: 'Dashboard', icon: Activity },
   { id: 'backtest', label: 'Backtest Results', icon: BarChart3 },
   { id: 'profiles', label: 'Profile Comparison', icon: GitBranch },
   { id: 'trades', label: 'Live Trades', icon: TrendingUp },
