@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend } from 'recharts'
-import { Activity, TrendingUp, Shield, Zap, BarChart3, GitBranch, ChevronRight, Clock, CheckCircle, ToggleLeft, ToggleRight, Calendar } from 'lucide-react'
+import { Activity, TrendingUp, Shield, Zap, BarChart3, GitBranch, ChevronRight, Clock, CheckCircle, ToggleLeft, ToggleRight, Calendar, Database, FlaskConical, LineChart, ShieldCheck, Brain, SearchCheck, BookOpen, Lightbulb, UserCheck, SlidersHorizontal, Timer, Scale, Globe, Lock, ShieldAlert, ListOrdered, Undo2, XCircle, HelpCircle, PauseCircle, PlayCircle, Bot } from 'lucide-react'
 
 const INFLATION_RATE = 0.03
 const INITIAL_CAPITAL = 100000
@@ -111,7 +111,7 @@ const TABS = [
   { id: 'backtest', label: 'Backtest Results', icon: BarChart3 },
   { id: 'profiles', label: 'Profile Comparison', icon: GitBranch },
   { id: 'trades', label: 'Live Trades', icon: TrendingUp },
-  { id: 'evolution', label: 'Evolution', icon: Zap },
+  { id: 'evolution', label: 'System', icon: Zap },
 ]
 
 function Card({ children, className = '', glow }) {
@@ -122,7 +122,7 @@ function StatusPill({ status, text }) {
   return <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${colors[status]}`}><span className={`w-1.5 h-1.5 rounded-full ${status === 'live' ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />{text}</span>
 }
 function InflationToggle({ inflationAdj, setInflationAdj }) {
-  return <button onClick={() => setInflationAdj(!inflationAdj)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${inflationAdj ? 'bg-purple-500/15 text-purple-300 border-purple-500/30' : 'bg-white/[0.03] text-slate-400 border-white/[0.08] hover:border-white/[0.15]'}`}>{inflationAdj ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}{inflationAdj ? 'Real (Inflation-Adj.)' : 'Nominal'}</button>
+  return <button onClick={() => setInflationAdj(!inflationAdj)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${inflationAdj ? 'bg-purple-500/15 text-purple-300 border-purple-500/30' : 'bg-white/[0.03] text-slate-400 border-white/[0.08] hover:border-white/[0.15]'}`}>{inflationAdj ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}{inflationAdj ? 'Real' : 'Nominal'}</button>
 }
 
 function DateRangeSelector({ startIdx, endIdx, setStartIdx, setEndIdx, dates }) {
@@ -196,12 +196,90 @@ function OverviewTab({ metrics, inflationAdj, curveData, startIdx, endIdx, setSt
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h2 className="text-lg font-semibold">System Status</h2><p className="text-sm text-slate-500">AI Portfolio Management System v4.0 · Data through April 2026</p></div>
+        <div><h2 className="text-lg font-semibold">System Performance</h2><p className="text-sm text-slate-500">AI Portfolio Management System v4.0 · Data through April 2026</p></div>
         <div className="flex gap-3"><StatusPill status="waiting" text="Paper Trading Ready" /><StatusPill status="live" text="Phase 7 In Progress" /></div>
       </div>
       <div className="grid grid-cols-3 gap-4">
-        {profileKeys.map(key => {
-          const p = BASE_PROFILES[key]; const m = metrics ? metrics[metricNames[key]] : null; const Icon = p.icon
+        {[
+          ['Aggressive', 'text-amber-400', '10'],
+          ['Growth', 'text-emerald-400', '12'],
+          ['Conservative', 'text-blue-400', '15'],
+        ].map(([name, nameColor, maxPositions]) => (
+          <Card key={name}>
+            <div className={`font-semibold text-base mb-4 ${nameColor}`}>{name}</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <div className="text-[10px] text-slate-500 uppercase mb-1">Portfolio Value</div>
+                <div className="font-mono text-sm font-semibold">$33,333</div>
+                <div className="text-xs text-slate-500">+$0.00 today</div>
+              </div>
+              <div>
+                <div className="text-[10px] text-slate-500 uppercase mb-1">Today's Return</div>
+                <div className="font-mono text-sm font-semibold text-slate-500">0.00%</div>
+                <div className="text-xs text-slate-500">Awaiting first trade</div>
+              </div>
+              <div>
+                <div className="text-[10px] text-slate-500 uppercase mb-1">Total Return</div>
+                <div className="font-mono text-sm font-semibold text-slate-500">0.00%</div>
+                <div className="text-xs text-slate-500">Since inception</div>
+              </div>
+              <div>
+                <div className="text-[10px] text-slate-500 uppercase mb-1">Active Positions</div>
+                <div className="font-mono text-sm font-semibold text-slate-500">0</div>
+                <div className="text-xs text-slate-500">of {maxPositions}</div>
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+      <div><h2 className="text-lg font-semibold">Paper Trading Performance</h2><p className="text-sm text-slate-500">Live portfolio tracking · Portfolio Tracker</p></div>
+      <Card>
+        <div className="h-64 rounded-lg bg-slate-800/50 flex items-center justify-center relative">
+          <div className="absolute top-3 right-3 flex gap-4 text-xs text-slate-500">
+            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400" />Aggressive</div>
+            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400" />Growth</div>
+            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-400" />Conservative</div>
+            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-400" />S&P 500</div>
+          </div>
+          <div className="flex flex-col items-center text-center">
+            <div className="w-12 h-12 rounded-full bg-slate-700/50 flex items-center justify-center mb-3"><Clock size={20} className="text-slate-400" /></div>
+            <div className="font-semibold text-lg">Awaiting First Trade</div>
+          </div>
+        </div>
+        <div className="flex justify-between items-center py-3 px-4 mt-3 bg-slate-800/30 rounded-lg">
+          <div className="text-sm text-slate-400">Portfolio Value: <span className="text-emerald-400 font-mono">$100,000</span></div>
+          <div className="text-sm text-slate-300">Active Profiles: 3</div>
+          <div className="flex gap-2">
+            <span className="text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded text-xs">Aggressive</span>
+            <span className="text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded text-xs">Growth</span>
+            <span className="text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded text-xs">Conservative</span>
+          </div>
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+function BacktestTab({ metrics, inflationAdj, setInflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates }) {
+  const m = metrics; const years = ((endIdx - startIdx) / 12).toFixed(1)
+  const rows = m ? [
+    { key: 'CAGR', a: `${m.Aggressive.cagr}%`, g: `${m.Growth.cagr}%`, c: `${m.Conservative.cagr}%`, b: `${m['S&P 500'].cagr}%`, d: 'Compound annual growth rate' },
+    { key: 'Sharpe Ratio', a: m.Aggressive.sharpe.toFixed(3), g: m.Growth.sharpe.toFixed(3), c: m.Conservative.sharpe.toFixed(3), b: m['S&P 500'].sharpe.toFixed(3), d: 'Risk-adjusted return' },
+    { key: 'Max Drawdown', a: `${m.Aggressive.maxDD}%`, g: `${m.Growth.maxDD}%`, c: `${m.Conservative.maxDD}%`, b: `${m['S&P 500'].maxDD}%`, d: 'Largest peak-to-trough decline' },
+    { key: 'Alpha vs SPY', a: `${m.Aggressive.alpha}%`, g: `${m.Growth.alpha}%`, c: `${m.Conservative.alpha}%`, b: '0%', d: 'Excess return over benchmark' },
+    { key: 'Win Rate', a: `${BASE_PROFILES.aggressive.winRate}%`, g: `${BASE_PROFILES.growth.winRate}%`, c: `${BASE_PROFILES.conservative.winRate}%`, b: '—', d: 'Profitable trade percentage' },
+    { key: 'Total Return', a: `${m.Aggressive.totalReturn.toLocaleString()}%`, g: `${m.Growth.totalReturn.toLocaleString()}%`, c: `${m.Conservative.totalReturn.toLocaleString()}%`, b: `${m['S&P 500'].totalReturn.toLocaleString()}%`, d: `$100K over ${years} yrs` },
+    { key: 'End Value', a: m.Aggressive.endVal >= 1000000 ? `$${(m.Aggressive.endVal/1000000).toFixed(2)}M` : `$${(m.Aggressive.endVal/1000).toFixed(0)}K`, g: m.Growth.endVal >= 1000000 ? `$${(m.Growth.endVal/1000000).toFixed(2)}M` : `$${(m.Growth.endVal/1000).toFixed(0)}K`, c: m.Conservative.endVal >= 1000000 ? `$${(m.Conservative.endVal/1000000).toFixed(2)}M` : `$${(m.Conservative.endVal/1000).toFixed(0)}K`, b: m['S&P 500'].endVal >= 1000000 ? `$${(m['S&P 500'].endVal/1000000).toFixed(2)}M` : `$${(m['S&P 500'].endVal/1000).toFixed(0)}K`, d: "Final Value (Today's Dollars)" },
+    { key: 'Positions', a: '10', g: '12', c: '15', b: '500', d: 'Concurrent holdings' },
+    { key: 'Rebalance', a: 'Weekly', g: 'Bi-weekly', c: 'Bi-weekly', b: '—', d: 'Rotation frequency' },
+    { key: 'Trailing Stop', a: '10%', g: '9%', c: '7%', b: '—', d: 'Downside protection' },
+  ] : []
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start justify-between"><div><h2 className="text-lg font-semibold">Backtest Results — {dateToLabel(dates[startIdx])} to {endIdx === dates.length - 1 ? 'Present' : dateToLabel(dates[endIdx])}{inflationAdj ? <span className="text-purple-400 text-sm ml-2">(Inflation-Adjusted)</span> : ''}</h2><p className="text-sm text-slate-500">{years} years · Backtested across dot-com, 2008, COVID, and 2022 regimes.</p></div><InflationToggle inflationAdj={inflationAdj} setInflationAdj={setInflationAdj} /></div>
+      <div className="grid grid-cols-3 gap-4">
+        {['aggressive', 'growth', 'conservative'].map(key => {
+          const p = BASE_PROFILES[key]; const pm = m ? m[p.name] : null; const Icon = p.icon
           return (
             <Card key={key} glow={p.border}>
               <div className="flex items-center justify-between mb-4">
@@ -212,64 +290,20 @@ function OverviewTab({ metrics, inflationAdj, curveData, startIdx, endIdx, setSt
                 <div className="text-right"><div className="text-xs text-slate-500">Allocation</div><div className="font-mono text-sm font-semibold" style={{ color: p.color }}>$33,300</div></div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div><div className="text-[10px] text-slate-500 uppercase">CAGR</div><div className="font-mono text-sm font-semibold" style={{ color: p.color }}>{m ? m.cagr : '—'}%</div></div>
-                <div><div className="text-[10px] text-slate-500 uppercase">Sharpe</div><div className="font-mono text-sm font-semibold">{m ? m.sharpe.toFixed(3) : '—'}</div></div>
-                <div><div className="text-[10px] text-slate-500 uppercase">Max DD</div><div className="font-mono text-sm font-semibold text-slate-300">{m ? m.maxDD : '—'}%</div></div>
+                <div><div className="text-[10px] text-slate-500 uppercase">CAGR</div><div className="font-mono text-sm font-semibold" style={{ color: p.color }}>{pm ? pm.cagr : '—'}%</div></div>
+                <div><div className="text-[10px] text-slate-500 uppercase">Sharpe</div><div className="font-mono text-sm font-semibold">{pm ? pm.sharpe.toFixed(3) : '—'}</div></div>
+                <div><div className="text-[10px] text-slate-500 uppercase">Max DD</div><div className="font-mono text-sm font-semibold text-slate-300">{pm ? pm.maxDD : '—'}%</div></div>
                 <div><div className="text-[10px] text-slate-500 uppercase">Win Rate</div><div className="font-mono text-sm font-semibold">{p.winRate ? p.winRate + '%' : '—'}</div></div>
               </div>
-              {inflationAdj && <div className="mt-2 pt-2 border-t border-white/[0.04]"><div className="text-[9px] text-purple-400 uppercase">Inflation-adjusted values</div></div>}
             </Card>
           )
         })}
       </div>
       <Card>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold">Equity Curves — {dateToLabel(dates[startIdx])} to {dateToLabel(dates[endIdx])}{inflationAdj ? <span className="text-purple-400 text-xs ml-2">(Real)</span> : ''}</h3>
-          <div className="flex gap-4 text-xs">{['aggressive', 'growth', 'conservative', 'benchmark'].map(k => <div key={k} className="flex items-center gap-1.5"><span className="w-2.5 h-0.5 rounded" style={{ background: BASE_PROFILES[k].color }} /><span className="text-slate-400">{BASE_PROFILES[k].name}</span></div>)}</div>
-        </div>
-        <div className="mb-3"><DateRangeSelector startIdx={startIdx} endIdx={endIdx} setStartIdx={setStartIdx} setEndIdx={setEndIdx} dates={dates} /></div>
-        <EquityCurveChart data={curveData} startIdx={startIdx} endIdx={endIdx} />
-      </Card>
-      <Card>
-        <h3 className="font-semibold mb-3">System Architecture</h3>
-        <div className="grid grid-cols-5 gap-3">
-          {[['Data Pipeline','503 S&P 500 tickers, yfinance + Finnhub'],['Backtest Engine','Vectorized, multi-regime, 2000-2026'],['Paper Trading','Alpaca API, $100K, 3 sub-portfolios'],['Risk Manager','Stops, circuit breakers, position limits'],['Self-Improvement','Opus-powered weekly evolution cycle']].map(([l,d],i) => (
-            <div key={i} className="rounded-lg border border-white/[0.04] bg-white/[0.02] p-3"><div className="text-xs text-emerald-400 mb-1">✅</div><div className="text-sm font-medium mb-0.5">{l}</div><div className="text-[10px] text-slate-500 leading-tight">{d}</div></div>
-          ))}
-        </div>
-      </Card>
-    </div>
-  )
-}
-
-function BacktestTab({ metrics, inflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates }) {
-  const m = metrics; const years = ((endIdx - startIdx) / 12).toFixed(1)
-  const rows = m ? [
-    { key: 'CAGR', a: `${m.Aggressive.cagr}%`, g: `${m.Growth.cagr}%`, c: `${m.Conservative.cagr}%`, b: `${m['S&P 500'].cagr}%`, d: 'Compound annual growth rate' },
-    { key: 'Sharpe Ratio', a: m.Aggressive.sharpe.toFixed(3), g: m.Growth.sharpe.toFixed(3), c: m.Conservative.sharpe.toFixed(3), b: m['S&P 500'].sharpe.toFixed(3), d: 'Risk-adjusted return' },
-    { key: 'Max Drawdown', a: `${m.Aggressive.maxDD}%`, g: `${m.Growth.maxDD}%`, c: `${m.Conservative.maxDD}%`, b: `${m['S&P 500'].maxDD}%`, d: 'Largest peak-to-trough decline' },
-    { key: 'Alpha vs SPY', a: `${m.Aggressive.alpha}%`, g: `${m.Growth.alpha}%`, c: `${m.Conservative.alpha}%`, b: '0%', d: 'Excess return over benchmark' },
-    { key: 'Win Rate', a: `${BASE_PROFILES.aggressive.winRate}%`, g: `${BASE_PROFILES.growth.winRate}%`, c: `${BASE_PROFILES.conservative.winRate}%`, b: '—', d: 'Profitable trade percentage' },
-    { key: 'Total Return', a: `${m.Aggressive.totalReturn.toLocaleString()}%`, g: `${m.Growth.totalReturn.toLocaleString()}%`, c: `${m.Conservative.totalReturn.toLocaleString()}%`, b: `${m['S&P 500'].totalReturn.toLocaleString()}%`, d: `$100K over ${years} yrs` },
-    { key: 'End Value', a: m.Aggressive.endVal >= 1000000 ? `$${(m.Aggressive.endVal/1000000).toFixed(2)}M` : `$${(m.Aggressive.endVal/1000).toFixed(0)}K`, g: m.Growth.endVal >= 1000000 ? `$${(m.Growth.endVal/1000000).toFixed(2)}M` : `$${(m.Growth.endVal/1000).toFixed(0)}K`, c: m.Conservative.endVal >= 1000000 ? `$${(m.Conservative.endVal/1000000).toFixed(2)}M` : `$${(m.Conservative.endVal/1000).toFixed(0)}K`, b: m['S&P 500'].endVal >= 1000000 ? `$${(m['S&P 500'].endVal/1000000).toFixed(2)}M` : `$${(m['S&P 500'].endVal/1000).toFixed(0)}K`, d: 'Final value', realLabel: "(Real - today's dollars)" },
-    { key: 'Positions', a: '10', g: '12', c: '15', b: '500', d: 'Concurrent holdings' },
-    { key: 'Rebalance', a: 'Weekly', g: 'Bi-weekly', c: 'Bi-weekly', b: '—', d: 'Rotation frequency' },
-    { key: 'Trailing Stop', a: '10%', g: '9%', c: '7%', b: '—', d: 'Downside protection' },
-  ] : []
-  return (
-    <div className="space-y-6">
-      <div><h2 className="text-lg font-semibold">Backtest Results — {dateToLabel(dates[startIdx])} to {dateToLabel(dates[endIdx])}{inflationAdj ? <span className="text-purple-400 text-sm ml-2">(Inflation-Adjusted)</span> : ''}</h2><p className="text-sm text-slate-500">{years} years · Backtested across dot-com, 2008, COVID, and 2022 regimes.</p></div>
-      <Card>
         <div className="flex items-center justify-between mb-3"><h3 className="font-semibold text-sm">Select Time Period</h3></div>
         <div className="mb-3"><DateRangeSelector startIdx={startIdx} endIdx={endIdx} setStartIdx={setStartIdx} setEndIdx={setEndIdx} dates={dates} /></div>
         <EquityCurveChart data={curveData} startIdx={startIdx} endIdx={endIdx} height={240} />
       </Card>
-      <div className="grid grid-cols-3 gap-4">
-        {['aggressive', 'growth', 'conservative'].map(key => {
-          const p = BASE_PROFILES[key]; const pm = m ? m[p.name] : null
-          return <Card key={key}><div className="flex items-center justify-between mb-2"><span className="font-semibold" style={{ color: p.color }}>{p.name}</span><span className="font-mono text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">PASS ✅</span></div><div className="text-xs text-slate-500">{p.strategy}</div>{pm && <div className="mt-2 pt-2 border-t border-white/[0.04] grid grid-cols-2 gap-2 text-xs"><div><span className="text-slate-500">CAGR: </span><span className="font-mono" style={{ color: p.color }}>{pm.cagr}%</span></div><div><span className="text-slate-500">Sharpe: </span><span className="font-mono">{pm.sharpe.toFixed(3)}</span></div></div>}</Card>
-        })}
-      </div>
       <Card><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-white/[0.06]"><th className="text-left py-3 px-3 text-xs text-slate-500 uppercase font-medium">Metric</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#f97316' }}>Aggressive</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#10b981' }}>Growth</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#3b82f6' }}>Conservative</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: BASE_PROFILES.benchmark.color }}>S&P 500</th></tr></thead>
         <tbody>{rows.map((r, i) => <tr key={r.key} className={`border-b border-white/[0.03] ${i % 2 === 0 ? 'bg-white/[0.01]' : ''}`}><td className="py-2.5 px-3"><div className="font-medium">{r.key}{inflationAdj && <span className="text-purple-400 ml-1.5 text-xs font-normal">{r.realLabel || '(Real)'}</span>}</div><div className="text-[10px] text-slate-500">{r.d}</div></td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: '#f97316' }}>{r.a}</td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: '#10b981' }}>{r.g}</td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: '#3b82f6' }}>{r.c}</td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: BASE_PROFILES.benchmark.color }}>{r.b}</td></tr>)}</tbody></table></div></Card>
     </div>
@@ -316,14 +350,42 @@ function TradesTab() {
 function EvolutionTab() {
   return (
     <div className="space-y-6">
+      <div><h2 className="text-lg font-semibold">System Architecture</h2><p className="text-sm text-slate-500">Five-layer pipeline powering the AI portfolio system.</p></div>
+      <Card>
+        <div className="grid grid-cols-5 gap-3">
+          {[
+            [Database, 'Data Pipeline', '503 S&P 500 tickers · Daily OHLCV data'],
+            [FlaskConical, 'Backtest Engine', 'Vectorized engine · 2000-2026 · Multi-regime validated'],
+            [LineChart, 'Paper Trading', 'Alpaca API, $100K, 3 sub-portfolios'],
+            [ShieldCheck, 'Risk Manager', 'Stops, circuit breakers, position limits'],
+            [Brain, 'Self-Improvement', 'Opus-powered weekly evolution cycle'],
+          ].map(([Icon, l, d], i) => (
+            <div key={i} className="rounded-lg border border-white/[0.04] bg-white/[0.02] p-3"><div className="text-emerald-400 mb-1"><Icon size={20} /></div><div className="text-sm font-medium mb-0.5">{l}</div><div className="text-[10px] text-slate-500 leading-tight">{d}</div></div>
+          ))}
+        </div>
+      </Card>
       <div><h2 className="text-lg font-semibold">Self-Improvement Engine</h2><p className="text-sm text-slate-500">Opus-powered weekly evolution. Analyzes, proposes, backtests, surfaces validated changes.</p></div>
-      <Card><h3 className="font-semibold mb-4">Weekly Cycle</h3><div className="flex items-center gap-2">{[['1','Analyze',"Review trades"],['2','Research','Scan approaches'],['3','Propose','1-3 improvements'],['4','Backtest','Validate proposals'],['5','Approve','Duncan via Telegram']].map(([s,l,d],i) => <React.Fragment key={s}><div className="flex-1 rounded-lg border border-white/[0.04] bg-white/[0.02] p-3 text-center"><div className="text-xs font-mono text-emerald-400 mb-1">Step {s}</div><div className="text-sm font-semibold mb-0.5">{l}</div><div className="text-[10px] text-slate-500">{d}</div></div>{i < 4 && <ChevronRight size={14} className="text-slate-600 shrink-0" />}</React.Fragment>)}</div></Card>
-      <div className="grid grid-cols-2 gap-4">
-        <Card><h3 className="font-semibold mb-3 text-emerald-400">Tunable Parameters</h3><div className="space-y-2 text-sm text-slate-400">{['Trailing stop percentages','Rebalance frequency','Take-profit levels','VIX regime thresholds','Signal weight ratios','Universe expansion'].map(i => <div key={i} className="flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-emerald-400" />{i}</div>)}</div></Card>
-        <Card><h3 className="font-semibold mb-3 text-red-400">Never Modified</h3><div className="space-y-2 text-sm text-slate-400">{['Circuit breakers','Max position size (15%)','Max sector concentration (40%)','Hard drawdown limits','Risk check execution order',"Duncan's final approval"].map(i => <div key={i} className="flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-red-400" />{i}</div>)}</div></Card>
-      </div>
-      <Card><h3 className="font-semibold mb-3">Telegram Commands</h3><div className="grid grid-cols-2 gap-2 text-sm">{[['STATUS','Portfolio overview'],['HISTORY','Evolution log'],['ROLLBACK','Undo last change'],['1 / 2 / 3','Approve proposal'],['NONE','Reject all'],['HELP','Show commands']].map(([c,d]) => <div key={c} className="flex items-center gap-3 rounded-lg border border-white/[0.04] bg-white/[0.02] p-2.5"><code className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">{c}</code><span className="text-slate-400">{d}</span></div>)}</div></Card>
+      <Card><h3 className="font-semibold mb-4">Weekly Cycle</h3><div className="flex items-center gap-2">{[[SearchCheck,'1','Analyze',"Review trades"],[BookOpen,'2','Research','Scan approaches'],[Lightbulb,'3','Propose','1-3 improvements'],[FlaskConical,'4','Backtest','Validate proposals'],[UserCheck,'5','Approve','Duncan via Telegram']].map(([Icon,s,l,d],i) => <React.Fragment key={s}><div className="flex-1 rounded-lg border border-white/[0.04] bg-white/[0.02] p-3 text-center"><div className="text-xs font-mono text-emerald-400 mb-1">Step {s}</div><div className="flex justify-center text-emerald-400 mt-2 mb-1"><Icon size={20} /></div><div className="text-sm font-semibold mb-0.5">{l}</div><div className="text-[10px] text-slate-500">{d}</div></div>{i < 4 && <ChevronRight size={14} className="text-slate-600 shrink-0" />}</React.Fragment>)}</div></Card>
       <Card><div className="flex flex-col items-center justify-center py-12 text-center"><div className="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center mb-4"><GitBranch size={20} className="text-purple-400" /></div><div className="font-semibold text-lg mb-1">No Proposals Yet</div><div className="text-sm text-slate-500 max-w-md">First evolution cycle runs Sunday 7 PM after one week of trading data.</div></div></Card>
+      <div className="grid grid-cols-2 gap-4">
+        <Card>
+          <h3 className="font-semibold text-lg text-center mb-3 text-emerald-400">Tunable Parameters</h3>
+          <div className="text-sm text-slate-400">
+            {[[SlidersHorizontal,'Trailing stop percentages'],[Timer,'Rebalance frequency'],[TrendingUp,'Take-profit levels'],[Activity,'VIX regime thresholds'],[Scale,'Signal weight ratios'],[Globe,'Universe expansion']].map(([Icon,label],i,arr) => (
+              <div key={label} className="flex items-center justify-center gap-2 py-2"><Icon size={14} className="text-slate-500 shrink-0" /><span>{label}</span></div>
+            ))}
+          </div>
+        </Card>
+        <Card>
+          <h3 className="font-semibold text-lg text-center mb-3 text-red-400">Never Modified</h3>
+          <div className="text-sm text-slate-400">
+            {[[Zap,'Circuit breakers'],[Lock,'Max position size (15%)'],[Lock,'Max sector concentration (40%)'],[ShieldAlert,'Hard drawdown limits'],[ListOrdered,'Risk check execution order'],[UserCheck,"Duncan's final approval"]].map(([Icon,label],i,arr) => (
+              <div key={label} className="flex items-center justify-center gap-2 py-2"><Icon size={14} className="text-slate-500 shrink-0" /><span>{label}</span></div>
+            ))}
+          </div>
+        </Card>
+      </div>
+      <Card><h3 className="font-semibold text-lg text-center mb-3">Telegram Commands</h3><div className="grid grid-cols-[1fr_auto_1fr] gap-x-8 text-center max-w-2xl mx-auto"><div className="flex flex-col gap-3">{[[Activity,'STATUS','Portfolio overview'],[Undo2,'ROLLBACK','Undo last change'],[XCircle,'NONE','Reject all'],[PauseCircle,'PAUSE','Pause trading']].map(([Icon,c,d]) => <div key={c} className="flex items-center justify-center gap-2"><Icon size={14} className="text-slate-500" /><code className="text-emerald-400 font-mono text-xs font-bold tracking-wide">{c}</code><span className="text-slate-400 text-sm">{d}</span></div>)}</div><div className="flex flex-col items-center justify-center"><Bot size={44} className="text-emerald-400" /><div className="text-emerald-400 font-mono text-sm tracking-widest font-bold mt-2">JARVIS</div></div><div className="flex flex-col gap-3">{[[Clock,'HISTORY','Evolution log'],[CheckCircle,'1/2/3','Approve proposal'],[HelpCircle,'HELP','Show commands'],[PlayCircle,'RESUME','Resume trading']].map(([Icon,c,d]) => <div key={c} className="flex items-center justify-center gap-2"><Icon size={14} className="text-slate-500" /><code className="text-emerald-400 font-mono text-xs font-bold tracking-wide">{c}</code><span className="text-slate-400 text-sm">{d}</span></div>)}</div></div></Card>
     </div>
   )
 }
@@ -353,19 +415,19 @@ export default function App() {
   const curveData = useMemo(() => fullMergedCurve ? getAdjustedCurve(fullMergedCurve, startIdx, inflationAdj) : null, [fullMergedCurve, inflationAdj, startIdx])
   const metrics = useMemo(() => fullMergedCurve ? calcMetrics(fullMergedCurve, startIdx, endIdx, jsonMetrics) : null, [fullMergedCurve, startIdx, endIdx, jsonMetrics])
   const inflMetrics = useMemo(() => (inflationAdj && curveData) ? calcMetrics(curveData, startIdx, endIdx) : metrics, [curveData, inflationAdj, startIdx, endIdx, metrics])
-  const tabProps = { metrics: inflMetrics, inflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates }
+  const tabProps = { metrics: inflMetrics, inflationAdj, setInflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates }
   const TabContent = { overview: () => <OverviewTab {...tabProps} />, backtest: () => <BacktestTab {...tabProps} />, profiles: () => <ProfilesTab metrics={inflMetrics} inflationAdj={inflationAdj} />, trades: () => <TradesTab />, evolution: () => <EvolutionTab /> }
   return (
     <div className="min-h-screen bg-[#0a0e17]">
       <header className="border-b border-white/[0.06] bg-[#0a0e17]/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center"><TrendingUp size={16} className="text-white" /></div><div><div className="font-bold text-sm tracking-tight">AI Portfolio System</div><div className="text-[10px] text-slate-500">Duncan Shin — Quantitative Strategy</div></div></div>
-          <div className="flex items-center gap-4"><InflationToggle inflationAdj={inflationAdj} setInflationAdj={setInflationAdj} /><div className="text-right mr-2"><div className="text-xs text-slate-500">Paper Trading Capital</div><div className="font-mono text-sm font-bold text-emerald-400">$100,000</div></div><StatusPill status="live" text="System Active" /></div>
+          <div className="flex items-center gap-4"><div className="text-right mr-2"><div className="text-xs text-slate-500">Duncan's Wealth Portfolio</div><div className="font-mono text-sm font-bold text-emerald-400">$100,000</div></div><StatusPill status="live" text="System Active" /></div>
         </div>
       </header>
       <nav className="border-b border-white/[0.06]"><div className="max-w-7xl mx-auto px-6 flex gap-1">{TABS.map(tab => { const Icon = tab.icon; const active = activeTab === tab.id; return <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${active ? 'border-emerald-500 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}><Icon size={14} />{tab.label}</button> })}</div></nav>
       <main className="max-w-7xl mx-auto px-6 py-6">{loadError ? <div className="text-sm text-red-400">Failed to load /backtest_output.json: {loadError}</div> : !fullMergedCurve ? <div className="text-sm text-slate-500">Loading backtest data…</div> : TabContent[activeTab]()}</main>
-      <footer className="border-t border-white/[0.06] mt-12"><div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-slate-600"><span>AI Portfolio Management System v4.0 · Jan 2000 – Apr 2026</span><span>Python · Alpaca · Claude Opus 4.6 · React</span></div></footer>
+      <footer className="border-t border-white/[0.06] mt-12"><div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between text-xs text-slate-600"><span>AI Portfolio Management System v4.0 · Jan 2000 – Present</span><span>Python · Alpaca · Claude Opus 4.6 · React</span></div></footer>
     </div>
   )
 }
