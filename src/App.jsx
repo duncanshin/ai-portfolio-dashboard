@@ -200,7 +200,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
   const [historyData, setHistoryData] = useState(null)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [isCustomRange, setIsCustomRange] = useState(false)
-  const [customStart, setCustomStart] = useState('2026-04-08')
+  const [customStart, setCustomStart] = useState('2026-04-13')
   const [customEnd, setCustomEnd] = useState(new Date().toISOString().split('T')[0])
 
   const HISTORY_PERIODS = [
@@ -218,7 +218,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
     { key: 'conservative', name: 'Conservative', color: '#3b82f6', textColor: 'text-blue-400', bgBadge: 'text-blue-400 bg-blue-400/10', icon: Shield },
   ]
 
-  const DEFAULT_START_DATE = '2026-04-08'
+  const DEFAULT_START_DATE = '2026-04-13'
   const chartData = historyData ? historyData.filter(function(d) {
     var startFilter = isCustomRange ? customStart : DEFAULT_START_DATE
     var endFilter = isCustomRange ? customEnd : '9999-12-31'
@@ -251,6 +251,8 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
         addPoints(con, 'conservative', 'equity')
         addPoints(bench, 'spy', 'spy')
         var merged = Object.values(dateMap).sort(function(a, b) { return a.date.localeCompare(b.date) })
+        // Remove data before trading start date
+        merged = merged.filter(function(d) { return d.date >= '2026-04-13' })
         // Re-normalize SPY so it starts at $100K on the first date with profile data
         var firstWithProfile = merged.find(function(d) { return d.aggressive || d.growth || d.conservative })
         if (firstWithProfile && firstWithProfile.spy && firstWithProfile.spy > 0) {
