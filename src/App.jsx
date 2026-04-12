@@ -189,7 +189,6 @@ function EquityCurveChart({ data, startIdx, endIdx, height = 340, crisisShade })
         <Area type="monotone" dataKey="Growth" stroke="#10b981" strokeWidth={2} fill="url(#grad-growth)" dot={false} />
         <Area type="monotone" dataKey="Conservative" stroke="#3b82f6" strokeWidth={2} fill="url(#grad-conservative)" dot={false} />
         <Area type="monotone" dataKey="S&P 500" stroke={BASE_PROFILES.benchmark.color} strokeWidth={2.5} fill="none" strokeDasharray="5 3" dot={false} />
-        <Legend wrapperStyle={{ fontSize: 11, paddingTop: 8 }} iconType="line" />
       </AreaChart>
     </ResponsiveContainer>
   )
@@ -405,9 +404,24 @@ function BacktestTab({ metrics, inflationAdj, setInflationAdj, curveData, startI
         })}
       </div>
       <Card>
-        <div className="flex items-center justify-between mb-3"><h3 className="font-semibold text-sm">Select Time Period</h3></div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-sm">Select Time Period</h3>
+          <div className="flex items-center gap-3 px-3 py-1.5 rounded-lg border border-white/[0.06] bg-[#0c1019]">
+            {[
+              { label: 'Aggressive', color: '#f97316' },
+              { label: 'Growth', color: '#10b981' },
+              { label: 'Conservative', color: '#3b82f6' },
+              { label: 'S&P 500', color: '#94a3b8', dashed: true },
+            ].map(item => (
+              <div key={item.label} className="flex items-center gap-1.5">
+                <svg width="14" height="3"><line x1="0" y1="1.5" x2="14" y2="1.5" stroke={item.color} strokeWidth="2" strokeDasharray={item.dashed ? '3 2' : 'none'} /></svg>
+                <span className="text-[10px] text-slate-400">{item.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
         <div className="mb-3"><DateRangeSelector startIdx={startIdx} endIdx={endIdx} setStartIdx={setStartIdx} setEndIdx={setEndIdx} dates={dates} onCrisisShade={setCrisisShade} /></div>
-        <EquityCurveChart data={curveData} startIdx={startIdx} endIdx={endIdx} height={280} crisisShade={crisisShade} />
+        <EquityCurveChart data={curveData} startIdx={startIdx} endIdx={endIdx} height={360} crisisShade={crisisShade} />
       </Card>
       <Card><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-white/[0.06]"><th className="text-left py-3 px-3 text-xs text-slate-500 uppercase font-medium">Metric</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#f97316' }}>Aggressive</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#10b981' }}>Growth</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#3b82f6' }}>Conservative</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: BASE_PROFILES.benchmark.color }}>S&P 500</th></tr></thead>
         <tbody>{rows.map((r, i) => <tr key={r.key} className={`border-b border-white/[0.03] ${i % 2 === 0 ? 'bg-white/[0.01]' : ''}`}><td className="py-2.5 px-3"><div className="font-medium">{r.key}{inflationAdj && <span className="text-purple-400 ml-1.5 text-xs font-normal">{r.realLabel || '(Real)'}</span>}</div><div className="text-[10px] text-slate-500">{r.d}</div></td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: '#f97316' }}>{r.a}</td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: '#10b981' }}>{r.g}</td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: '#3b82f6' }}>{r.c}</td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: BASE_PROFILES.benchmark.color }}>{r.b}</td></tr>)}</tbody></table></div></Card>
