@@ -212,7 +212,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
   ]
 
   const PROFILE_CONFIG = [
-    { key: 'aggressive', name: 'Aggressive', color: '#f97316', textColor: 'text-amber-400', bgBadge: 'text-amber-400 bg-amber-400/10' },
+    { key: 'aggressive', name: 'Aggressive', color: '#f97316', textColor: 'text-orange-500', bgBadge: 'text-orange-500 bg-orange-500/10' },
     { key: 'growth', name: 'Growth', color: '#10b981', textColor: 'text-emerald-400', bgBadge: 'text-emerald-400 bg-emerald-400/10' },
     { key: 'conservative', name: 'Conservative', color: '#3b82f6', textColor: 'text-blue-400', bgBadge: 'text-blue-400 bg-blue-400/10' },
   ]
