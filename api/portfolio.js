@@ -2,9 +2,9 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
 
-  const BASE_URL = process.env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets';
+  var BASE_URL = process.env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets';
 
-  const profiles = {
+  var profileCreds = {
     aggressive: {
       key: process.env.ALPACA_API_KEY_AGGRESSIVE,
       secret: process.env.ALPACA_SECRET_KEY_AGGRESSIVE,
@@ -21,72 +21,80 @@ export default async function handler(req, res) {
 
   async function fetchProfile(name, creds) {
     if (!creds.key || !creds.secret) {
-      return { name, error: 'Missing API keys', connected: false };
+      return { name: name, error: 'Missing API keys', connected: false };
     }
-    const headers = {
+    var headers = {
       'APCA-API-KEY-ID': creds.key,
       'APCA-API-SECRET-KEY': creds.secret,
     };
     try {
-      const [accountRes, positionsRes] = await Promise.all([
-        fetch(`${BASE_URL}/v2/account`, { headers }),
-        fetch(`${BASE_URL}/v2/positions`, { headers }),
-      ]);
+      var accountRes = await fetch(BASE_URL + '/v2/account', { headers: headers });
+      var positionsRes = await fetch(BASE_URL + '/v2/positions', { headers: headers });
       if (!accountRes.ok) {
-        const errBody = await accountRes.text();
-        return { name, error: 'Alpaca API error', status: accountRes.status, detail: errBody, connected: false };
+        var errBody = await accountRes.text();
+        return { name: name, error: 'Alpaca API error', status: accountRes.status, detail: errBody, connected: false };
       }
-      const account = await accountRes.json();
-      const positions = await positionsRes.json();
+      var account = await accountRes.json();
+      var positions = await positionsRes.json();
+      var equity = parseFloat(account.equity);
+      var lastEquity = parseFloat(account.last_equity);
+      var dailyPnl = equity - lastEquity;
+      var dailyPnlPct = lastEquity > 0 ? (dailyPnl / lastEquity) * 100 : 0;
       return {
-        name,
+        name: name,
         connected: true,
-        account: {
-          portfolio_value: parseFloat(account.portfolio_value),
-          cash: parseFloat(account.cash),
-          buying_power: parseFloat(account.buying_power),
-          equity: parseFloat(account.equity),
-          daily_pnl: parseFloat(account.equity) - parseFloat(account.last_equity),
-          daily_pnl_pct: ((parseFloat(account.equity) - parseFloat(account.last_equity)) / parseFloat(account.last_equity)) * 100,
-        },
-        positions: positions.map(p => ({
-          symbol: p.symbol,
-          qty: parseFloat(p.qty),
-          market_value: parseFloat(p.market_value),
-          avg_entry: parseFloat(p.avg_entry_price),
-          current_price: parseFloat(p.current_price),
-          unrealized_pnl: parseFloat(p.unrealized_pl),
-          unrealized_pnl_pct: parseFloat(p.unrealized_plpc) * 100,
-          change_today: parseFloat(p.change_today) * 100,
-        })),
-        active_positions: positions.length,
+        portfolioValue: parseFloat(account.portfolio_value),
+        cash: parseFloat(account.cash),
+        buyingPower: parseFloat(account.buying_power),
+        equity: equity,
+        todayReturn: dailyPnl,
+        totalReturnPct: dailyPnlPct,
+        activePositions: positions.length,
+        positions: positions.map(function(p) {
+          return {
+            symbol: p.symbol,
+            qty: parseFloat(p.qty),
+            marketValue: parseFloat(p.market_value),
+            avgEntry: parseFloat(p.avg_entry_price),
+            currentPrice: parseFloat(p.current_price),
+            unrealizedPnl: parseFloat(p.unrealized_pl),
+            unrealizedPnlPct: parseFloat(p.unrealized_plpc) * 100,
+            changeToday: parseFloat(p.change_today) * 100,
+          };
+        }),
       };
     } catch (err) {
-      return { name, error: 'Failed to fetch', message: err.message, connected: false };
+      return { name: name, error: 'Failed to fetch', message: err.message, connected: false };
     }
   }
 
   try {
-    const [aggressive, growth, conservative] = await Promise.all([
-      fetchProfile('aggressive', profiles.aggressive),
-      fetchProfile('growth', profiles.growth),
-      fetchProfile('conservative', profiles.conservative),
+    var results = await Promise.all([
+      fetchProfile('aggressive', profileCreds.aggressive),
+      fetchProfile('growth', profileCreds.growth),
+      fetchProfile('conservative', profileCreds.conservative),
     ]);
-
-    const connectedProfiles = [aggressive, growth, conservative].filter(p => p.connected);
-    const totalValue = connectedProfiles.reduce((sum, p) => sum + (p.account?.portfolio_value || 0), 0);
-    const totalPnl = connectedProfiles.reduce((sum, p) => sum + (p.account?.daily_pnl || 0), 0);
-    const totalPositions = connectedProfiles.reduce((sum, p) => sum + (p.active_positions || 0), 0);
+    var aggressive = results[0];
+    var growth = results[1];
+    var conservative = results[2];
+    var connected = results.filter(function(p) { return p.connected; });
+    var totalValue = connected.reduce(function(sum, p) { return sum + (p.portfolioValue || 0); }, 0);
+    var totalPnl = connected.reduce(function(sum, p) { return sum + (p.todayReturn || 0); }, 0);
+    var totalPositions = connected.reduce(function(sum, p) { return sum + (p.activePositions || 0); }, 0);
 
     return res.status(200).json({
       timestamp: new Date().toISOString(),
       summary: {
-        total_value: totalValue,
-        total_daily_pnl: totalPnl,
-        total_positions: totalPositions,
-        connected_accounts: connectedProfiles.length,
+        totalValue: totalValue,
+        totalTodayReturn: totalPnl,
+        totalPositions: totalPositions,
+        connectedProfiles: connected.length,
       },
-      profiles: { aggressive, growth, conservative },
+      profiles: {
+        aggressive: aggressive,
+        growth: growth,
+        conservative: conservative,
+      },
     });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to fetch', message: err.message });
