@@ -190,73 +190,136 @@ function EquityCurveChart({ data, startIdx, endIdx, height = 340 }) {
   )
 }
 
-function OverviewTab({ metrics, inflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates, liveData }) {
-  const profileKeys = ['aggressive', 'growth', 'conservative']
-  const metricNames = { aggressive: 'Aggressive', growth: 'Growth', conservative: 'Conservative' }
-  const isLive = liveData && liveData.timestamp && (Date.now() - new Date(liveData.timestamp).getTime() < 30 * 60 * 1000)
+function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setStartIdx, setEndIdx, dates, liveData }) {
+  const [historyPeriod, setHistoryPeriod] = useState('1M')
+  const [historyData, setHistoryData] = useState(null)
+  const [historyLoading, setHistoryLoading] = useState(false)
+
+  const HISTORY_PERIODS = [
+    { label: '1W', value: '1W' },
+    { label: '1M', value: '1M' },
+    { label: '3M', value: '3M' },
+    { label: '6M', value: '6M' },
+    { label: '1Y', value: '1A' },
+    { label: 'All', value: 'all' },
+  ]
+
+  const PROFILE_CONFIG = [
+    { key: 'aggressive', name: 'Aggressive', color: '#f97316', textColor: 'text-amber-400', bgBadge: 'text-amber-400 bg-amber-400/10' },
+    { key: 'growth', name: 'Growth', color: '#10b981', textColor: 'text-emerald-400', bgBadge: 'text-emerald-400 bg-emerald-400/10' },
+    { key: 'conservative', name: 'Conservative', color: '#3b82f6', textColor: 'text-blue-400', bgBadge: 'text-blue-400 bg-blue-400/10' },
+  ]
+
+  useEffect(() => {
+    setHistoryLoading(true)
+    Promise.all([
+      fetch('/api/history?profile=aggressive&period=' + historyPeriod + '&timeframe=1D').then(r => r.ok ? r.json() : null),
+      fetch('/api/history?profile=growth&period=' + historyPeriod + '&timeframe=1D').then(r => r.ok ? r.json() : null),
+      fetch('/api/history?profile=conservative&period=' + historyPeriod + '&timeframe=1D').then(r => r.ok ? r.json() : null),
+    ])
+      .then(function(results) {
+        var agg = results[0], gro = results[1], con = results[2]
+        var dateMap = {}
+        function addPoints(data, key) {
+          if (!data || !data.points) return
+          data.points.forEach(function(p) {
+            if (!dateMap[p.date]) dateMap[p.date] = { date: p.date }
+            dateMap[p.date][key] = p.equity
+          })
+        }
+        addPoints(agg, 'aggressive')
+        addPoints(gro, 'growth')
+        addPoints(con, 'conservative')
+        var merged = Object.values(dateMap).sort(function(a, b) { return a.date.localeCompare(b.date) })
+        setHistoryData(merged)
+        setHistoryLoading(false)
+      })
+      .catch(function() { setHistoryLoading(false) })
+  }, [historyPeriod])
+
+  var profiles = liveData && liveData.profiles ? liveData.profiles : null
+  var summary = liveData && liveData.summary ? liveData.summary : null
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h2 className="text-lg font-semibold">System Performance</h2><p className="text-sm text-slate-500">AI Portfolio Management System v4.0 · Data through April 2026</p></div>
-        <div className="flex gap-3"><StatusPill status={isLive ? 'live' : 'waiting'} text="Paper Trading Ready" /><StatusPill status="live" text="Phase 7 In Progress" /></div>
+        <div><h2 className="text-lg font-semibold">System Performance</h2><p className="text-sm text-slate-500">AI Portfolio Management System v4.0 · Live Paper Trading</p></div>
+        <div className="flex gap-3"><StatusPill status={summary && summary.connectedProfiles === 3 ? 'live' : 'waiting'} text={(summary ? summary.connectedProfiles : 0) + '/3 Connected'} /><StatusPill status="live" text="Phase 7 In Progress" /></div>
       </div>
-      <div className="grid grid-cols-3 gap-4">
-        {[
-          ['Aggressive', 'text-amber-400', '10'],
-          ['Growth', 'text-emerald-400', '12'],
-          ['Conservative', 'text-blue-400', '15'],
-        ].map(([name, nameColor, maxPositions]) => (
-          <Card key={name}>
-            <div className={`font-semibold text-base mb-4 ${nameColor}`}>{name}</div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="text-[10px] text-slate-500 uppercase mb-1">Portfolio Value</div>
-                <div className="font-mono text-sm font-semibold">{liveData ? `$${liveData.account.portfolio_value.toLocaleString()}` : '$33,333'}</div>
-                <div className="text-xs text-slate-500">+$0.00 today</div>
-              </div>
-              <div>
-                <div className="text-[10px] text-slate-500 uppercase mb-1">Today's Return</div>
-                <div className={`font-mono text-sm font-semibold ${liveData ? (liveData.account.daily_pnl >= 0 ? 'text-emerald-400' : 'text-red-400') : 'text-slate-500'}`}>{liveData ? `${liveData.account.daily_pnl >= 0 ? '+' : ''}$${liveData.account.daily_pnl.toFixed(2)}` : '+$0.00 today'}</div>
-                <div className="text-xs text-slate-500">Awaiting first trade</div>
-              </div>
-              <div>
-                <div className="text-[10px] text-slate-500 uppercase mb-1">Total Return</div>
-                <div className="font-mono text-sm font-semibold text-slate-500">{liveData ? `${liveData.account.daily_pnl_pct >= 0 ? '+' : ''}${liveData.account.daily_pnl_pct.toFixed(2)}%` : '0.00%'}</div>
-                <div className="text-xs text-slate-500">Since inception</div>
-              </div>
-              <div>
-                <div className="text-[10px] text-slate-500 uppercase mb-1">Active Positions</div>
-                <div className="font-mono text-sm font-semibold text-slate-500">{liveData ? `${liveData.active_positions}` : '0'}</div>
-                <div className="text-xs text-slate-500">of {maxPositions}</div>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
-      <div><h2 className="text-lg font-semibold">Paper Trading Performance</h2><p className="text-sm text-slate-500">Live portfolio tracking · Portfolio Tracker</p></div>
+
       <Card>
-        <div className="h-64 rounded-lg bg-slate-800/50 flex items-center justify-center relative">
-          <div className="absolute top-3 right-3 flex gap-4 text-xs text-slate-500">
-            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-400" />Aggressive</div>
-            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-400" />Growth</div>
-            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-400" />Conservative</div>
-            <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-400" />S&P 500</div>
-          </div>
-          <div className="flex flex-col items-center text-center">
-            <div className="w-12 h-12 rounded-full bg-slate-700/50 flex items-center justify-center mb-3"><Clock size={20} className="text-slate-400" /></div>
-            <div className="font-semibold text-lg">Awaiting First Trade</div>
-          </div>
-        </div>
-        <div className="flex justify-between items-center py-3 px-4 mt-3 bg-slate-800/30 rounded-lg">
-          <div className="text-sm text-slate-400">Portfolio Value: <span className="text-emerald-400 font-mono">{liveData ? `$${liveData.account.portfolio_value.toLocaleString()}` : '$100,000'}</span></div>
-          <div className="text-sm text-slate-300">Active Profiles: 3</div>
-          <div className="flex gap-2">
-            <span className="text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded text-xs">Aggressive</span>
-            <span className="text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded text-xs">Growth</span>
-            <span className="text-blue-400 bg-blue-400/10 px-2 py-0.5 rounded text-xs">Conservative</span>
-          </div>
+        <div className="flex justify-between items-center py-1">
+          <div><div className="text-[10px] text-slate-500 uppercase mb-1">Total Portfolio Value</div><div className="font-mono text-lg font-bold text-emerald-400">{summary ? '$' + summary.totalValue.toLocaleString() : '$300,000'}</div></div>
+          <div><div className="text-[10px] text-slate-500 uppercase mb-1">Today's Return</div><div className={'font-mono text-sm font-semibold ' + (summary && summary.totalTodayReturn >= 0 ? 'text-emerald-400' : 'text-red-400')}>{summary ? (summary.totalTodayReturn >= 0 ? '+' : '') + '$' + summary.totalTodayReturn.toFixed(2) : '+$0.00'}</div></div>
+          <div><div className="text-[10px] text-slate-500 uppercase mb-1">Total Positions</div><div className="font-mono text-sm font-semibold">{summary ? summary.totalPositions : 0}</div></div>
+          <div><div className="text-[10px] text-slate-500 uppercase mb-1">Accounts</div><div className="font-mono text-sm font-semibold">{summary ? summary.connectedProfiles : 0}/3</div></div>
         </div>
       </Card>
+
+      <div className="grid grid-cols-3 gap-4">
+        {PROFILE_CONFIG.map(function(cfg) {
+          var p = profiles ? profiles[cfg.key] : null
+          var connected = p && p.connected
+          return (
+            <Card key={cfg.key}>
+              <div className={'font-semibold text-base mb-4 ' + cfg.textColor}>{cfg.name}</div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Portfolio Value</div><div className="font-mono text-sm font-semibold">{connected ? '$' + p.portfolioValue.toLocaleString() : '$100,000'}</div></div>
+                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Today's Return</div><div className={'font-mono text-sm font-semibold ' + (connected && p.todayReturn >= 0 ? 'text-emerald-400' : connected ? 'text-red-400' : 'text-slate-500')}>{connected ? (p.todayReturn >= 0 ? '+' : '') + '$' + p.todayReturn.toFixed(2) : '+$0.00'}</div></div>
+                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Total Return</div><div className={'font-mono text-sm font-semibold ' + (connected && p.totalReturnPct >= 0 ? 'text-emerald-400' : connected ? 'text-red-400' : 'text-slate-500')}>{connected ? (p.totalReturnPct >= 0 ? '+' : '') + p.totalReturnPct.toFixed(2) + '%' : '0.00%'}</div></div>
+                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Positions</div><div className="font-mono text-sm font-semibold">{connected ? p.activePositions : 0}</div></div>
+              </div>
+            </Card>
+          )
+        })}
+      </div>
+
+      <div>
+        <h2 className="text-lg font-semibold">Paper Trading Performance</h2><p className="text-sm text-slate-500 mb-3">Live equity curves from Alpaca paper trading accounts</p>
+        <Card>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-semibold text-sm">Equity Curves</h3>
+            <div className="flex gap-1">
+              {HISTORY_PERIODS.map(function(p) { return (
+                <button key={p.value} onClick={function() { setHistoryPeriod(p.value) }}
+                  className={'px-2.5 py-1 rounded text-xs font-medium transition-all ' + (historyPeriod === p.value ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300')}>{p.label}</button>
+              )})}
+            </div>
+          </div>
+          {historyLoading ? (
+            <div className="h-64 flex items-center justify-center text-slate-500">Loading...</div>
+          ) : historyData && historyData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={historyData}>
+                <defs>
+                  <linearGradient id="grad-agg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f97316" stopOpacity={0.15} /><stop offset="100%" stopColor="#f97316" stopOpacity={0} /></linearGradient>
+                  <linearGradient id="grad-gro" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity={0.15} /><stop offset="100%" stopColor="#10b981" stopOpacity={0} /></linearGradient>
+                  <linearGradient id="grad-con" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3b82f6" stopOpacity={0.15} /><stop offset="100%" stopColor="#3b82f6" stopOpacity={0} /></linearGradient>
+                </defs>
+                <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" />
+                <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={function(v) { var parts = v.split('-'); return parseInt(parts[1]) + '/' + parseInt(parts[2]) }} />
+                <YAxis tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={function(v) { return '$' + (v/1000).toFixed(0) + 'k' }} domain={['dataMin - 1000', 'dataMax + 1000']} />
+                <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }} formatter={function(v) { return ['$' + v.toLocaleString()] }} />
+                <Area type="monotone" dataKey="aggressive" stroke="#f97316" strokeWidth={2} fill="url(#grad-agg)" dot={false} name="Aggressive" />
+                <Area type="monotone" dataKey="growth" stroke="#10b981" strokeWidth={2} fill="url(#grad-gro)" dot={false} name="Growth" />
+                <Area type="monotone" dataKey="conservative" stroke="#3b82f6" strokeWidth={2} fill="url(#grad-con)" dot={false} name="Conservative" />
+                <Legend />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-[300px] rounded-lg bg-slate-800/50 flex items-center justify-center">
+              <div className="flex flex-col items-center text-center">
+                <div className="w-12 h-12 rounded-full bg-slate-700/50 flex items-center justify-center mb-3"><Clock size={20} className="text-slate-400" /></div>
+                <div className="font-semibold text-lg">Awaiting First Trade</div>
+                <div className="text-xs text-slate-500">Equity curves will appear once trading begins</div>
+              </div>
+            </div>
+          )}
+          <div className="flex gap-3 mt-3">
+            {PROFILE_CONFIG.map(function(cfg) { return <span key={cfg.key} className={cfg.bgBadge + ' px-2 py-0.5 rounded text-xs'}>{cfg.name}</span> })}
+          </div>
+        </Card>
+      </div>
     </div>
   )
 }
