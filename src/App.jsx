@@ -298,7 +298,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
         </div>
       </Card>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         {PROFILE_CONFIG.map(function(cfg) {
           var p = profiles ? profiles[cfg.key] : null
           var connected = p && p.connected
@@ -314,6 +314,15 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
             </Card>
           )
         })}
+        <Card>
+          <div className="flex items-center gap-2 mb-4"><div className="p-1.5 rounded-lg" style={{ background: 'rgba(148,163,184,0.08)' }}><BarChart3 size={14} style={{ color: '#94a3b8' }} /></div><span className="font-semibold text-base text-slate-400">S&P 500</span></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><div className="text-[10px] text-slate-500 uppercase mb-1">Portfolio Value</div><div className="font-mono text-sm font-semibold">$100,000</div></div>
+            <div><div className="text-[10px] text-slate-500 uppercase mb-1">Today's Return</div><div className="font-mono text-sm font-semibold text-slate-500">—</div></div>
+            <div><div className="text-[10px] text-slate-500 uppercase mb-1">Total Return</div><div className="font-mono text-sm font-semibold text-slate-500">0.00%</div></div>
+            <div><div className="text-[10px] text-slate-500 uppercase mb-1">Positions</div><div className="font-mono text-sm font-semibold">500</div></div>
+          </div>
+        </Card>
       </div>
 
       <div>
@@ -404,7 +413,7 @@ function BacktestTab({ metrics, inflationAdj, setInflationAdj, curveData, startI
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between"><div><h2 className="text-lg font-semibold">Backtest Results — {dateToLabel(dates[startIdx])} to {endIdx === dates.length - 1 ? 'Present' : dateToLabel(dates[endIdx])}{inflationAdj ? <span className="text-purple-400 text-sm ml-2">(Inflation-Adjusted)</span> : ''}</h2><p className="text-sm text-slate-500">{years} years · Backtested across dot-com, 2008, COVID, and 2022 regimes.</p></div><InflationToggle inflationAdj={inflationAdj} setInflationAdj={setInflationAdj} /></div>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         {['aggressive', 'growth', 'conservative'].map(key => {
           const p = BASE_PROFILES[key]; const pm = m ? m[p.name] : null; const Icon = p.icon
           return (
@@ -425,6 +434,21 @@ function BacktestTab({ metrics, inflationAdj, setInflationAdj, curveData, startI
             </Card>
           )
         })}
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-lg" style={{ background: 'rgba(148,163,184,0.08)' }}><BarChart3 size={16} style={{ color: '#94a3b8' }} /></div>
+              <div><div className="font-semibold text-sm" style={{ color: '#94a3b8' }}>S&P 500</div><div className="text-[10px] text-slate-500">Benchmark</div></div>
+            </div>
+            <div className="text-right"><div className="text-xs text-slate-500">End Value</div><div className="font-mono text-sm font-semibold" style={{ color: '#94a3b8' }}>{m ? fmtVal(m['S&P 500'].endVal) : '—'}</div></div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><div className="text-[10px] text-slate-500 uppercase">CAGR</div><div className="font-mono text-sm font-semibold" style={{ color: '#94a3b8' }}>{m ? m['S&P 500'].cagr : '—'}%</div></div>
+            <div><div className="text-[10px] text-slate-500 uppercase">Sharpe</div><div className="font-mono text-sm font-semibold">{m ? m['S&P 500'].sharpe.toFixed(3) : '—'}</div></div>
+            <div><div className="text-[10px] text-slate-500 uppercase">Max DD</div><div className="font-mono text-sm font-semibold text-slate-300">{m ? m['S&P 500'].maxDD : '—'}%</div></div>
+            <div><div className="text-[10px] text-slate-500 uppercase">Win Rate</div><div className="font-mono text-sm font-semibold">—</div></div>
+          </div>
+        </Card>
       </div>
       <Card>
         <div className="mb-3"><h3 className="font-semibold text-sm mb-2">Select Time Period</h3></div>
