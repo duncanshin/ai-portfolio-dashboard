@@ -16,13 +16,21 @@ const BASE_PROFILES = {
 // JSON shape: { equity_curves: { dates: [YYYY-MM], aggressive: [$], growth, conservative, benchmark }, metrics: {...} }
 function buildMergedFromJson(json) {
   const ec = json.equity_curves
-  return ec.dates.map((date, i) => ({
+  const points = ec.dates.map((date, i) => ({
     date, idx: i,
     Aggressive: ec.aggressive[i],
     Growth: ec.growth[i],
     Conservative: ec.conservative[i],
     'S&P 500': ec.benchmark[i],
   }))
+  // Extend to current month if data ends before today
+  const now = new Date()
+  const currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0')
+  if (points.length > 0 && points[points.length - 1].date < currentMonth) {
+    const last = points[points.length - 1]
+    points.push({ date: currentMonth, idx: points.length, Aggressive: last.Aggressive, Growth: last.Growth, Conservative: last.Conservative, 'S&P 500': last['S&P 500'] })
+  }
+  return points
 }
 
 const dateToLabel = (d) => { const [y, m] = d.split('-'); const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return `${months[parseInt(m)-1]} ${y}` }
