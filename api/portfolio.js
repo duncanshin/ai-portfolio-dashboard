@@ -1,5 +1,4 @@
 export default async function handler(req, res) {
-  // CORS headers so your dashboard can call this
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET');
 
@@ -10,17 +9,21 @@ export default async function handler(req, res) {
   };
 
   try {
-    // Fetch account info + positions in parallel
-    const [accountRes, positionsRes] = await Promise.all([
-      fetch(`${BASE_URL}/v2/account`, { headers }),
-      fetch(`${BASE_URL}/v2/positions`, { headers }),
-    ]);
+    const accountRes = await fetch(`${BASE_URL}/v2/account`, { headers });
 
-    if (!accountRes.ok || !positionsRes.ok) {
-      return res.status(500).json({ error: 'Alpaca API error' });
+    if (!accountRes.ok) {
+      const errBody = await accountRes.text();
+      return res.status(500).json({
+        error: 'Alpaca API error',
+        status: accountRes.status,
+        detail: errBody,
+        key_prefix: process.env.ALPACA_API_KEY ? process.env.ALPACA_API_KEY.substring(0, 4) + '...' : 'MISSING',
+        base_url: BASE_URL,
+      });
     }
 
     const account = await accountRes.json();
+    const positionsRes = await fetch(`${BASE_URL}/v2/positions`, { headers });
     const positions = await positionsRes.json();
 
     return res.status(200).json({
@@ -46,6 +49,6 @@ export default async function handler(req, res) {
       active_positions: positions.length,
     });
   } catch (err) {
-    return res.status(500).json({ error: 'Failed to fetch portfolio data' });
+    return res.status(500).json({ error: 'Failed to fetch', message: err.message });
   }
 }
