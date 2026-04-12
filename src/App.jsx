@@ -293,25 +293,21 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
         <h2 className="text-lg font-semibold">Paper Trading Performance</h2><p className="text-sm text-slate-500 mb-3">Live equity curves from Alpaca paper trading accounts</p>
         <Card>
           <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
               <h3 className="font-semibold text-sm">Equity Curves</h3>
-              {isCustomRange && (
-                <div className="flex items-center gap-1.5">
-                  <input type="date" value={customStart} onChange={function(e) { setCustomStart(e.target.value) }}
-                    className="bg-white/[0.04] border border-white/[0.08] rounded px-2 py-0.5 text-xs text-slate-300 focus:outline-none focus:border-emerald-500/40" />
-                  <span className="text-slate-600 text-xs">to</span>
-                  <input type="date" value={customEnd} onChange={function(e) { setCustomEnd(e.target.value) }}
-                    className="bg-white/[0.04] border border-white/[0.08] rounded px-2 py-0.5 text-xs text-slate-300 focus:outline-none focus:border-emerald-500/40" />
-                </div>
-              )}
+              <div className="flex items-center gap-1.5">
+                <input type="date" value={customStart} onChange={function(e) { setCustomStart(e.target.value); setIsCustomRange(true) }}
+                  className="bg-[#161b2b] border border-white/[0.06] rounded-md px-1.5 py-0.5 text-[11px] text-slate-400 font-mono focus:outline-none focus:border-emerald-500/40" />
+                <span className="text-slate-600 text-[10px]">to</span>
+                <input type="date" value={customEnd} onChange={function(e) { setCustomEnd(e.target.value); setIsCustomRange(true) }}
+                  className="bg-[#161b2b] border border-white/[0.06] rounded-md px-1.5 py-0.5 text-[11px] text-slate-400 font-mono focus:outline-none focus:border-emerald-500/40" />
+              </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-0.5">
               {HISTORY_PERIODS.map(function(p) { return (
                 <button key={p.value} onClick={function() { setIsCustomRange(false); setHistoryPeriod(p.value) }}
-                  className={'px-2.5 py-1 rounded text-xs font-medium transition-all ' + (!isCustomRange && historyPeriod === p.value ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300')}>{p.label}</button>
+                  className={'px-2 py-0.5 rounded text-[10px] font-medium transition-all ' + (!isCustomRange && historyPeriod === p.value ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300')}>{p.label}</button>
               )})}
-              <button onClick={function() { setIsCustomRange(true) }}
-                className={'px-2.5 py-1 rounded text-xs font-medium transition-all ' + (isCustomRange ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300')}>Adjustable Dates</button>
             </div>
           </div>
           {historyLoading ? (
@@ -343,7 +339,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
               </div>
             </div>
           )}
-          <div className="flex items-center justify-center gap-4 mt-3 py-2 px-4 rounded-lg border border-white/[0.06] bg-white/[0.02]">
+          <div className="flex items-center justify-center gap-5 mt-3 py-2 px-5 rounded-lg border border-white/[0.05] bg-[#0c1019]">
             {[
               { label: 'Aggressive', color: '#f97316' },
               { label: 'Growth', color: '#10b981' },
@@ -351,7 +347,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
               { label: 'S&P 500', color: '#94a3b8', dashed: true },
             ].map(function(item) { return (
               <div key={item.label} className="flex items-center gap-1.5">
-                <span className="w-3 h-0.5 rounded-full" style={{ background: item.color, borderTop: item.dashed ? '1px dashed ' + item.color : 'none' }} />
+                <svg width="14" height="3"><line x1="0" y1="1.5" x2="14" y2="1.5" stroke={item.color} strokeWidth="2" strokeDasharray={item.dashed ? '3 2' : 'none'} /></svg>
                 <span className="text-[10px] text-slate-500">{item.label}</span>
               </div>
             )})}
