@@ -326,7 +326,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
 
       <Card>
         <div className="flex justify-between items-center py-1">
-          <div><div className="text-[10px] text-slate-500 uppercase mb-1">Total Portfolio Value</div><div className="font-mono text-lg font-bold text-emerald-400">{summary ? '$' + summary.totalValue.toLocaleString() : '$300,000'}</div></div>
+          <div><div className="text-[10px] text-slate-500 uppercase mb-1">Total Portfolio Value</div><div className="font-mono text-lg font-bold text-emerald-400">{summary ? '$' + (summary.totalValue||0).toLocaleString() : '$300,000'}</div></div>
           <div><div className="text-[10px] text-slate-500 uppercase mb-1">Today's Return</div><div className={'font-mono text-sm font-semibold ' + (summary && (summary.totalTodayReturn||0) >= 0 ? 'text-emerald-400' : 'text-red-400')}>{summary ? ((summary.totalTodayReturn||0) >= 0 ? '+' : '') + '$' + (summary.totalTodayReturn||0).toFixed(2) : '+$0.00'}</div></div>
           <div><div className="text-[10px] text-slate-500 uppercase mb-1">Total Positions</div><div className="font-mono text-sm font-semibold">{summary ? summary.totalPositions : 0}</div></div>
           <div><div className="text-[10px] text-slate-500 uppercase mb-1">Accounts</div><div className="font-mono text-sm font-semibold">{summary ? summary.connectedProfiles : 0}/3</div></div>
@@ -435,7 +435,7 @@ function BacktestTab({ metrics, inflationAdj, setInflationAdj, curveData, startI
   const fmtVal = (v) => v >= 1000000 ? `$${(v/1000000).toFixed(2)}M` : `$${(v/1000).toFixed(0)}K`
   const rows = m ? [
     { key: 'CAGR', a: `${m.Aggressive.cagr}%`, g: `${m.Growth.cagr}%`, c: `${m.Conservative.cagr}%`, b: `${m['S&P 500'].cagr}%`, d: 'Compound annual growth rate' },
-    { key: 'Sharpe Ratio', a: m.Aggressive.sharpe.toFixed(3), g: m.Growth.sharpe.toFixed(3), c: m.Conservative.sharpe.toFixed(3), b: m['S&P 500'].sharpe.toFixed(3), d: 'Risk-adjusted return' },
+    { key: 'Sharpe Ratio', a: (m.Aggressive.sharpe||0).toFixed(3), g: (m.Growth.sharpe||0).toFixed(3), c: (m.Conservative.sharpe||0).toFixed(3), b: (m['S&P 500'].sharpe||0).toFixed(3), d: 'Risk-adjusted return' },
     { key: 'Annualized Volatility', a: `${m.Aggressive.annualVol}%`, g: `${m.Growth.annualVol}%`, c: `${m.Conservative.annualVol}%`, b: `${m['S&P 500'].annualVol}%`, d: 'Portfolio return variability' },
     { key: 'Max Drawdown', a: `${m.Aggressive.maxDD}%`, g: `${m.Growth.maxDD}%`, c: `${m.Conservative.maxDD}%`, b: `${m['S&P 500'].maxDD}%`, d: 'Largest peak-to-trough decline' },
     { key: 'Alpha vs S&P 500 (SPY)', a: `${m.Aggressive.alpha}%`, g: `${m.Growth.alpha}%`, c: `${m.Conservative.alpha}%`, b: '0%', d: 'Excess return over benchmark' },
@@ -464,7 +464,7 @@ function BacktestTab({ metrics, inflationAdj, setInflationAdj, curveData, startI
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div><div className="text-[10px] text-slate-500 uppercase">CAGR</div><div className="font-mono text-sm font-semibold" style={{ color: p.color }}>{pm ? pm.cagr : '—'}%</div></div>
-                <div><div className="text-[10px] text-slate-500 uppercase">Sharpe</div><div className="font-mono text-sm font-semibold">{pm ? pm.sharpe.toFixed(3) : '—'}</div></div>
+                <div><div className="text-[10px] text-slate-500 uppercase">Sharpe</div><div className="font-mono text-sm font-semibold">{pm ? (pm.sharpe||0).toFixed(3) : '—'}</div></div>
                 <div><div className="text-[10px] text-slate-500 uppercase">Max DD</div><div className="font-mono text-sm font-semibold text-slate-300">{pm ? pm.maxDD : '—'}%</div></div>
                 <div><div className="text-[10px] text-slate-500 uppercase">Win Rate</div><div className="font-mono text-sm font-semibold">{pm && pm.winRate != null ? pm.winRate + '%' : '—'}</div></div>
               </div>
@@ -481,7 +481,7 @@ function BacktestTab({ metrics, inflationAdj, setInflationAdj, curveData, startI
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><div className="text-[10px] text-slate-500 uppercase">CAGR</div><div className="font-mono text-sm font-semibold" style={{ color: '#94a3b8' }}>{m ? m['S&P 500'].cagr : '—'}%</div></div>
-            <div><div className="text-[10px] text-slate-500 uppercase">Sharpe</div><div className="font-mono text-sm font-semibold">{m ? m['S&P 500'].sharpe.toFixed(3) : '—'}</div></div>
+            <div><div className="text-[10px] text-slate-500 uppercase">Sharpe</div><div className="font-mono text-sm font-semibold">{m ? (m['S&P 500'].sharpe||0).toFixed(3) : '—'}</div></div>
             <div><div className="text-[10px] text-slate-500 uppercase">Max DD</div><div className="font-mono text-sm font-semibold text-slate-300">{m ? m['S&P 500'].maxDD : '—'}%</div></div>
             <div><div className="text-[10px] text-slate-500 uppercase">Win Rate</div><div className="font-mono text-sm font-semibold">—</div></div>
           </div>
@@ -745,7 +745,7 @@ export default function App() {
       <header className="border-b border-white/[0.06] bg-[#0a0e17]/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center"><TrendingUp size={16} className="text-white" /></div><div><div className="font-bold text-sm tracking-tight">AI Portfolio System</div><div className="text-[10px] text-slate-500">Duncan Shin — Quantitative Strategy</div></div></div>
-          <div className="flex items-center gap-4"><div className="text-right mr-2"><div className="text-xs text-slate-500">Duncan's Wealth Portfolio</div><div className="font-mono text-sm font-bold text-emerald-400">{liveData && liveData.summary ? "$" + liveData.summary.totalValue.toLocaleString() : "..."}</div></div><StatusPill status={systemActive ? 'live' : 'paused'} text={systemActive ? 'System Active' : 'System Paused'} onClick={function() { setSystemActive(!systemActive) }} /></div>
+          <div className="flex items-center gap-4"><div className="text-right mr-2"><div className="text-xs text-slate-500">Duncan's Wealth Portfolio</div><div className="font-mono text-sm font-bold text-emerald-400">{liveData && liveData.summary ? "$" + (liveData.summary.totalValue||0).toLocaleString() : "..."}</div></div><StatusPill status={systemActive ? 'live' : 'paused'} text={systemActive ? 'System Active' : 'System Paused'} onClick={function() { setSystemActive(!systemActive) }} /></div>
         </div>
       </header>
       <nav className="border-b border-white/[0.06]"><div className="max-w-7xl mx-auto px-6 flex gap-1">{TABS.map(tab => { const Icon = tab.icon; const active = activeTab === tab.id; return <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${active ? 'border-emerald-500 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}><Icon size={14} />{tab.label}</button> })}</div></nav>
