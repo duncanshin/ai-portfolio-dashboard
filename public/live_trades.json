@@ -1,0 +1,28 @@
+{
+  "updated_at": "2026-04-13T14:56:35.747822",
+  "summary": {
+    "totalValue": 0,
+    "totalPnl": 0,
+    "totalPnlPct": 0,
+    "paperTrading": true,
+    "initialCapital": 100000
+  },
+  "profiles": {
+    "aggressive": {
+      "account": null,
+      "positions": [],
+      "error": "No client"
+    },
+    "growth": {
+      "account": null,
+      "positions": [],
+      "error": "No client"
+    },
+    "conservative": {
+      "account": null,
+      "positions": [],
+      "error": "No client"
+    }
+  },
+  "trades": []
+}

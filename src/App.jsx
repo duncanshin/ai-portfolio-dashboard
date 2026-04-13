@@ -541,11 +541,120 @@ function ProfilesTab({ metrics, inflationAdj }) {
   )
 }
 
-function TradesTab() {
+function TradesTab({ liveData }) {
+  const profileColors = {
+    aggressive: { color: '#f97316', bg: 'rgba(249,115,22,0.08)', border: 'rgba(249,115,22,0.25)' },
+    growth: { color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)' },
+    conservative: { color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.25)' },
+  }
+
+  if (!liveData || !liveData.profiles) {
+    return (
+      <div className="space-y-6">
+        <div><h2 className="text-lg font-semibold">Live Trade Log</h2><p className="text-sm text-slate-500">Loading live data from Alpaca...</p></div>
+        <Card><div className="flex flex-col items-center justify-center py-16 text-center"><div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center mb-4"><Clock size={20} className="text-amber-400" /></div><div className="font-semibold text-lg mb-1">Awaiting Data</div><div className="text-sm text-slate-500 max-w-md">Paper trading with $100K per profile. Positions will appear after the export runs.</div></div></Card>
+      </div>
+    )
+  }
+
+  const summary = liveData.summary || {}
+  const profiles = liveData.profiles || {}
+  const trades = liveData.trades || []
+  const updatedAt = liveData.updated_at ? new Date(liveData.updated_at).toLocaleString() : 'Unknown'
+
   return (
     <div className="space-y-6">
-      <div><h2 className="text-lg font-semibold">Live Trade Log</h2><p className="text-sm text-slate-500">Trades populate once the daemon runs on the MacBook Air.</p></div>
-      <Card><div className="flex flex-col items-center justify-center py-16 text-center"><div className="w-12 h-12 rounded-full bg-amber-500/10 flex items-center justify-center mb-4"><Clock size={20} className="text-amber-400" /></div><div className="font-semibold text-lg mb-1">Awaiting First Trade</div><div className="text-sm text-slate-500 max-w-md">Paper trading with $100K across 3 profiles. Every trade logged with thesis, P&L, and risk metrics.</div><div className="mt-6 grid grid-cols-3 gap-6 text-center"><div><div className="font-mono text-lg font-bold text-amber-400">$100,000</div><div className="text-xs text-slate-500">Paper Capital</div></div><div><div className="font-mono text-lg font-bold text-slate-300">3</div><div className="text-xs text-slate-500">Active Profiles</div></div><div><div className="font-mono text-lg font-bold text-slate-300">37</div><div className="text-xs text-slate-500">Max Positions</div></div></div></div></Card>
+      <div>
+        <h2 className="text-lg font-semibold">Live Paper Trading</h2>
+        <p className="text-sm text-slate-500">Positions from Alpaca paper accounts \u00b7 Updated {updatedAt}</p>
+      </div>
+
+      <Card>
+        <div className="grid grid-cols-4 gap-4 text-center">
+          <div>
+            <div className="text-xs text-slate-500 mb-1">Total Equity</div>
+            <div className="font-mono text-lg font-bold text-emerald-400">${(summary.totalValue || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-500 mb-1">Unrealized P&L</div>
+            <div className={`font-mono text-lg font-bold ${(summary.totalPnl||0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{(summary.totalPnl||0) >= 0 ? '+' : ''}${(summary.totalPnl||0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-500 mb-1">P&L %</div>
+            <div className={`font-mono text-lg font-bold ${(summary.totalPnlPct||0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{(summary.totalPnlPct||0) >= 0 ? '+' : ''}{(summary.totalPnlPct||0).toFixed(2)}%</div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-500 mb-1">Mode</div>
+            <div className="font-mono text-lg font-bold text-amber-400">{summary.paperTrading ? 'Paper' : 'Live'}</div>
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid grid-cols-3 gap-4">
+        {Object.entries(profiles).map(([name, data]) => {
+          const colors = profileColors[name] || profileColors.growth
+          const account = data.account || {}
+          const positions = data.positions || []
+          const pnl = data.total_pnl || 0
+          return (
+            <Card key={name}>
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full" style={{backgroundColor: colors.color}}></div>
+                  <span className="font-semibold capitalize">{name}</span>
+                </div>
+                <span className="text-xs text-slate-500">{positions.length} position{positions.length !== 1 ? 's' : ''}</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><div className="text-xs text-slate-500">Equity</div><div className="font-mono font-bold" style={{color: colors.color}}>${(account.equity||0).toLocaleString(undefined, {maximumFractionDigits:0})}</div></div>
+                <div><div className="text-xs text-slate-500">Cash</div><div className="font-mono text-slate-300">${(account.cash||0).toLocaleString(undefined, {maximumFractionDigits:0})}</div></div>
+                <div><div className="text-xs text-slate-500">P&L</div><div className={`font-mono ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{pnl >= 0 ? '+' : ''}${pnl.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</div></div>
+                <div><div className="text-xs text-slate-500">P&L %</div><div className={`font-mono ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{pnl >= 0 ? '+' : ''}{(data.total_pnl_pct||0).toFixed(2)}%</div></div>
+              </div>
+              {positions.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-white/5">
+                  <div className="text-xs text-slate-500 mb-2">Holdings</div>
+                  {positions.map((pos, i) => (
+                    <div key={i} className="flex items-center justify-between py-1 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold">{pos.ticker}</span>
+                        <span className="text-xs text-slate-500">{pos.shares} shares</span>
+                      </div>
+                      <div className={`font-mono text-xs ${pos.unrealized_pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{pos.unrealized_pnl >= 0 ? '+' : ''}${pos.unrealized_pnl?.toFixed(2)} ({pos.unrealized_pnl_pct >= 0 ? '+' : ''}{pos.unrealized_pnl_pct?.toFixed(1)}%)</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          )
+        })}
+      </div>
+
+      <Card>
+        <h3 className="font-semibold mb-3">Recent Trades</h3>
+        <table className="w-full text-sm">
+          <thead><tr className="text-xs text-slate-500 border-b border-white/5">
+            <th className="text-left py-2 pr-3">Time</th><th className="text-left py-2 pr-3">Profile</th><th className="text-left py-2 pr-3">Side</th><th className="text-left py-2 pr-3">Ticker</th><th className="text-right py-2 pr-3">Shares</th><th className="text-left py-2">Status</th>
+          </tr></thead>
+          <tbody>
+            {trades.slice(0, 30).map((trade, i) => {
+              const colors = profileColors[trade.profile] || profileColors.growth
+              const time = trade.submitted_at ? new Date(trade.submitted_at).toLocaleString(undefined, {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : ''
+              return (
+                <tr key={trade.order_id || i} className="border-b border-white/5 hover:bg-white/[0.02]">
+                  <td className="py-2 pr-3 text-xs text-slate-400">{time}</td>
+                  <td className="py-2 pr-3"><span className="text-xs px-1.5 py-0.5 rounded" style={{backgroundColor: colors.bg, color: colors.color, border: '1px solid ' + colors.border}}>{(trade.profile||'').slice(0,3).toUpperCase()}</span></td>
+                  <td className="py-2 pr-3"><span className={`text-xs font-bold uppercase ${trade.side === 'buy' ? 'text-emerald-400' : 'text-red-400'}`}>{trade.side}</span></td>
+                  <td className="py-2 pr-3 font-mono font-bold">{trade.ticker}</td>
+                  <td className="py-2 pr-3 text-right font-mono text-slate-300">{trade.shares}</td>
+                  <td className="py-2 text-xs"><span className={`px-1.5 py-0.5 rounded ${(trade.status||'').includes('PENDING') ? 'bg-amber-500/10 text-amber-400' : (trade.status||'').includes('FILLED') ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-500/10 text-slate-400'}`}>{(trade.status||'submitted').replace('OrderStatus.','')}</span></td>
+                </tr>
+              )
+            })}
+            {trades.length === 0 && <tr><td colSpan={6} className="py-8 text-center text-slate-500">No trades recorded yet</td></tr>}
+          </tbody>
+        </table>
+      </Card>
     </div>
   )
 }
@@ -619,7 +728,7 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    fetch('/api/portfolio')
+    fetch('/live_trades.json')
       .then(r => { if (!r.ok) throw new Error('API error'); return r.json() })
       .then(data => setLiveData(data))
       .catch(err => console.error('Portfolio fetch failed:', err))
@@ -630,7 +739,7 @@ export default function App() {
   const metrics = useMemo(() => fullMergedCurve ? calcMetrics(fullMergedCurve, startIdx, endIdx, jsonMetrics, jsonTrades, dates) : null, [fullMergedCurve, startIdx, endIdx, jsonMetrics, jsonTrades, dates])
   const inflMetrics = useMemo(() => (inflationAdj && curveData) ? calcMetrics(curveData, startIdx, endIdx, null, jsonTrades, dates) : metrics, [curveData, inflationAdj, startIdx, endIdx, metrics, jsonTrades, dates])
   const tabProps = { metrics: inflMetrics, inflationAdj, setInflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates }
-  const TabContent = { overview: () => <OverviewTab {...tabProps} liveData={liveData} />, backtest: () => <BacktestTab {...tabProps} />, profiles: () => <ProfilesTab metrics={inflMetrics} inflationAdj={inflationAdj} />, trades: () => <TradesTab />, evolution: () => <EvolutionTab /> }
+  const TabContent = { overview: () => <OverviewTab {...tabProps} liveData={liveData} />, backtest: () => <BacktestTab {...tabProps} />, profiles: () => <ProfilesTab metrics={inflMetrics} inflationAdj={inflationAdj} />, trades: () => <TradesTab liveData={liveData} />, evolution: () => <EvolutionTab /> }
   return (
     <div className="min-h-screen bg-[#0a0e17]">
       <header className="border-b border-white/[0.06] bg-[#0a0e17]/80 backdrop-blur-md sticky top-0 z-50">
