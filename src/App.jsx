@@ -317,34 +317,53 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
   var profiles = liveData && liveData.profiles ? liveData.profiles : null
   var summary = liveData && liveData.summary ? liveData.summary : null
 
+  // Derive dashboard fields from actual JSON structure
+  var totalPositions = 0
+  var connectedProfiles = 0
+  if (profiles) {
+    Object.values(profiles).forEach(function(prof) {
+      if (prof && prof.account) { connectedProfiles++ }
+      if (prof && prof.positions) { totalPositions += prof.positions.length }
+    })
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div><h2 className="text-lg font-semibold">System Performance</h2><p className="text-sm text-slate-500">AI Portfolio Management System v4.0 · Live Paper Trading</p></div>
-        <div className="flex gap-3"><StatusPill status={summary && summary.connectedProfiles === 3 ? 'live' : 'waiting'} text={(summary ? summary.connectedProfiles : 0) + '/3 Connected'} /><StatusPill status="live" text="Phase 7 In Progress" /></div>
+        <div className="flex gap-3"><StatusPill status={connectedProfiles === 3 ? 'live' : 'waiting'} text={connectedProfiles + '/3 Connected'} /><StatusPill status="live" text="Phase 7 In Progress" /></div>
       </div>
 
       <Card>
         <div className="flex justify-between items-center py-1">
           <div><div className="text-[10px] text-slate-500 uppercase mb-1">Total Portfolio Value</div><div className="font-mono text-lg font-bold text-emerald-400">{summary ? '$' + (summary.totalValue||0).toLocaleString() : '$300,000'}</div></div>
-          <div><div className="text-[10px] text-slate-500 uppercase mb-1">Today's Return</div><div className={'font-mono text-sm font-semibold ' + (summary && (summary.totalTodayReturn||0) >= 0 ? 'text-emerald-400' : 'text-red-400')}>{summary ? ((summary.totalTodayReturn||0) >= 0 ? '+' : '') + '$' + (summary.totalTodayReturn||0).toFixed(2) : '+$0.00'}</div></div>
-          <div><div className="text-[10px] text-slate-500 uppercase mb-1">Total Positions</div><div className="font-mono text-sm font-semibold">{summary ? summary.totalPositions : 0}</div></div>
-          <div><div className="text-[10px] text-slate-500 uppercase mb-1">Accounts</div><div className="font-mono text-sm font-semibold">{summary ? summary.connectedProfiles : 0}/3</div></div>
+          <div><div className="text-[10px] text-slate-500 uppercase mb-1">Unrealized P&L</div><div className={'font-mono text-sm font-semibold ' + (summary && (summary.totalPnl||0) >= 0 ? 'text-emerald-400' : 'text-red-400')}>{summary ? ((summary.totalPnl||0) >= 0 ? '+' : '') + '$' + (summary.totalPnl||0).toFixed(2) : '+$0.00'}</div></div>
+          <div><div className="text-[10px] text-slate-500 uppercase mb-1">Total Positions</div><div className="font-mono text-sm font-semibold">{totalPositions}</div></div>
+          <div><div className="text-[10px] text-slate-500 uppercase mb-1">Accounts</div><div className="font-mono text-sm font-semibold">{connectedProfiles}/3</div></div>
         </div>
       </Card>
 
       <div className="grid grid-cols-4 gap-4">
         {PROFILE_CONFIG.map(function(cfg) {
           var p = profiles ? profiles[cfg.key] : null
-          var connected = p && p.connected
+          var connected = p && p.account
+          var portfolioValue = connected ? (p.account.portfolio_value || p.account.equity || 0) : 0
+          var totalPnl = 0
+          var totalPnlPct = 0
+          var activePositions = 0
+          if (connected && p.positions) {
+            activePositions = p.positions.length
+            p.positions.forEach(function(pos) { totalPnl += (pos.unrealized_pnl || 0) })
+            totalPnlPct = portfolioValue > 0 ? (totalPnl / (portfolioValue - totalPnl)) * 100 : 0
+          }
           return (
             <Card key={cfg.key}>
               <div className="flex items-center gap-2 mb-4"><div className="p-1.5 rounded-lg" style={{ background: cfg.color + '14' }}><cfg.icon size={14} style={{ color: cfg.color }} /></div><span className={'font-semibold text-base ' + cfg.textColor}>{cfg.name}</span></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Portfolio Value</div><div className="font-mono text-sm font-semibold">{connected ? '$' + (p.portfolioValue||0).toLocaleString() : '$100,000'}</div></div>
-                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Today's Return</div><div className={'font-mono text-sm font-semibold ' + (connected && (p.todayReturn||0) >= 0 ? 'text-emerald-400' : connected ? 'text-red-400' : 'text-slate-500')}>{connected ? ((p.todayReturn||0) >= 0 ? '+' : '') + '$' + (p.todayReturn||0).toFixed(2) : '+$0.00'}</div></div>
-                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Total Return</div><div className={'font-mono text-sm font-semibold ' + (connected && (p.totalReturnPct||0) >= 0 ? 'text-emerald-400' : connected ? 'text-red-400' : 'text-slate-500')}>{connected ? ((p.totalReturnPct||0) >= 0 ? '+' : '') + (p.totalReturnPct||0).toFixed(2) + '%' : '0.00%'}</div></div>
-                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Positions</div><div className="font-mono text-sm font-semibold">{connected ? p.activePositions : 0}</div></div>
+                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Portfolio Value</div><div className="font-mono text-sm font-semibold">{connected ? '$' + portfolioValue.toLocaleString(undefined, {maximumFractionDigits:0}) : '$100,000'}</div></div>
+                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Unrealized P&L</div><div className={'font-mono text-sm font-semibold ' + (connected && totalPnl >= 0 ? 'text-emerald-400' : connected ? 'text-red-400' : 'text-slate-500')}>{connected ? (totalPnl >= 0 ? '+' : '') + '$' + totalPnl.toFixed(2) : '+$0.00'}</div></div>
+                <div><div className="text-[10px] text-slate-500 uppercase mb-1">P&L %</div><div className={'font-mono text-sm font-semibold ' + (connected && totalPnlPct >= 0 ? 'text-emerald-400' : connected ? 'text-red-400' : 'text-slate-500')}>{connected ? (totalPnlPct >= 0 ? '+' : '') + totalPnlPct.toFixed(2) + '%' : '0.00%'}</div></div>
+                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Positions</div><div className="font-mono text-sm font-semibold">{connected ? activePositions : 0}</div></div>
               </div>
             </Card>
           )
