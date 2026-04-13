@@ -1,32 +1,75 @@
-module.exports = async function handler(req, res) {
-  const PROFILE_KEYS = {
-    aggressive: { key: process.env.ALPACA_API_KEY_AGGRESSIVE, secret: process.env.ALPACA_SECRET_KEY_AGGRESSIVE },
-    growth: { key: process.env.ALPACA_API_KEY_GROWTH, secret: process.env.ALPACA_SECRET_KEY_GROWTH },
-    conservative: { key: process.env.ALPACA_API_KEY_CONSERVATIVE, secret: process.env.ALPACA_SECRET_KEY_CONSERVATIVE },
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET');
+
+  var BASE_URL = process.env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets';
+
+  var profileCreds = {
+    aggressive: {
+      key: process.env.ALPACA_API_KEY_AGGRESSIVE,
+      secret: process.env.ALPACA_SECRET_KEY_AGGRESSIVE,
+    },
+    growth: {
+      key: process.env.ALPACA_API_KEY_GROWTH,
+      secret: process.env.ALPACA_SECRET_KEY_GROWTH,
+    },
+    conservative: {
+      key: process.env.ALPACA_API_KEY_CONSERVATIVE,
+      secret: process.env.ALPACA_SECRET_KEY_CONSERVATIVE,
+    },
+  };
+
+  var profile = req.query.profile;
+  var period = req.query.period || '1M';
+  var timeframe = req.query.timeframe || '1D';
+  var start = req.query.start;
+  var end = req.query.end;
+
+  if (!profile || !profileCreds[profile]) {
+    return res.status(400).json({ error: 'Invalid profile' });
   }
-  const BASE_URL = process.env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets'
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  const { profile, period, timeframe, start, end } = req.query
-  if (!profile || !PROFILE_KEYS[profile]) return res.status(400).json({ error: 'Invalid profile' })
-  const creds = PROFILE_KEYS[profile]
-  if (!creds.key || !creds.secret) return res.status(500).json({ error: 'Missing keys for ' + profile })
+
+  var creds = profileCreds[profile];
+  if (!creds.key || !creds.secret) {
+    return res.status(500).json({ error: 'Missing API keys for ' + profile });
+  }
+
+  var headers = {
+    'APCA-API-KEY-ID': creds.key,
+    'APCA-API-SECRET-KEY': creds.secret,
+  };
+
   try {
-    const params = new URLSearchParams()
-    if (start && end) { params.set('date_start', start); params.set('date_end', end) }
-    else { params.set('period', period || '1M') }
-    params.set('timeframe', timeframe || '1D')
-    const r = await fetch(BASE_URL + '/v2/account/portfolio/history?' + params.toString(), {
-      headers: { 'APCA-API-KEY-ID': creds.key, 'APCA-API-SECRET-KEY': creds.secret }
-    })
-    if (!r.ok) return res.status(r.status).json({ error: await r.text() })
-    const data = await r.json()
-    const points = []
+    var url = BASE_URL + '/v2/account/portfolio/history?timeframe=' + timeframe;
+    if (start && end) {
+      url += '&date_start=' + start + '&date_end=' + end;
+    } else {
+      url += '&period=' + period;
+    }
+
+    var response = await fetch(url, { headers: headers });
+    if (!response.ok) {
+      var errBody = await response.text();
+      return res.status(response.status).json({ error: 'Alpaca API error', detail: errBody });
+    }
+
+    var data = await response.json();
+    var points = [];
     if (data.timestamp && data.equity) {
-      for (let i = 0; i < data.timestamp.length; i++) {
-        const d = new Date(data.timestamp[i] * 1000)
-        points.push({ date: d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'), equity: Math.round(data.equity[i]*100)/100 })
+      for (var i = 0; i < data.timestamp.length; i++) {
+        var d = new Date(data.timestamp[i] * 1000);
+        var year = d.getFullYear();
+        var month = String(d.getMonth() + 1).padStart(2, '0');
+        var day = String(d.getDate()).padStart(2, '0');
+        points.push({
+          date: year + '-' + month + '-' + day,
+          equity: Math.round(data.equity[i] * 100) / 100,
+        });
       }
     }
-    return res.status(200).json({ profile, points })
-  } catch (err) { return res.status(500).json({ error: err.message }) }
+
+    return res.status(200).json({ profile: profile, points: points });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to fetch', message: err.message });
+  }
 }
