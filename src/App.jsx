@@ -747,7 +747,7 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    fetch('/live_trades.json')
+    fetch('/api/portfolio')
       .then(r => { if (!r.ok) throw new Error('API error'); return r.json() })
       .then(data => setLiveData(data))
       .catch(err => console.error('Portfolio fetch failed:', err))
