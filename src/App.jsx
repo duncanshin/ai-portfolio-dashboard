@@ -371,10 +371,10 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
         <Card>
           <div className="flex items-center gap-2 mb-4"><div className="p-1.5 rounded-lg" style={{ background: 'rgba(148,163,184,0.08)' }}><BarChart3 size={14} style={{ color: '#94a3b8' }} /></div><span className="font-semibold text-base text-slate-400">S&P 500</span></div>
           <div className="grid grid-cols-2 gap-3">
-            <div><div className="text-[10px] text-slate-500 uppercase mb-1">Portfolio Value</div><div className="font-mono text-sm font-semibold">$100,000</div></div>
-            <div><div className="text-[10px] text-slate-500 uppercase mb-1">Today's Return</div><div className="font-mono text-sm font-semibold text-slate-500">—</div></div>
-            <div><div className="text-[10px] text-slate-500 uppercase mb-1">Total Return</div><div className="font-mono text-sm font-semibold text-slate-500">0.00%</div></div>
-            <div><div className="text-[10px] text-slate-500 uppercase mb-1">Positions</div><div className="font-mono text-sm font-semibold">500</div></div>
+            <div><div className="text-[10px] text-slate-500 uppercase mb-1">SPY Price</div><div className="font-mono text-sm font-semibold text-slate-300">{liveData && liveData.benchmark && liveData.benchmark.price ? "$" + liveData.benchmark.price.toFixed(2) : "—"}</div></div>
+            <div><div className="text-[10px] text-slate-500 uppercase mb-1">Today's Return</div><div className={"font-mono text-sm font-semibold " + (liveData && liveData.benchmark && liveData.benchmark.todayChangePct != null ? (liveData.benchmark.todayChangePct >= 0 ? "text-emerald-400" : "text-red-400") : "text-slate-500")}>{liveData && liveData.benchmark && liveData.benchmark.todayChangePct != null ? (liveData.benchmark.todayChangePct >= 0 ? "+" : "") + liveData.benchmark.todayChangePct.toFixed(2) + "%" : "—"}</div></div>
+            <div><div className="text-[10px] text-slate-500 uppercase mb-1">YTD Return</div><div className={"font-mono text-sm font-semibold " + (liveData && liveData.benchmark && liveData.benchmark.ytdReturnPct != null ? (liveData.benchmark.ytdReturnPct >= 0 ? "text-emerald-400" : "text-red-400") : "text-slate-500")}>{liveData && liveData.benchmark && liveData.benchmark.ytdReturnPct != null ? (liveData.benchmark.ytdReturnPct >= 0 ? "+" : "") + liveData.benchmark.ytdReturnPct.toFixed(2) + "%" : "—"}</div></div>
+            <div><div className="text-[10px] text-slate-500 uppercase mb-1">Constituents</div><div className="font-mono text-sm font-semibold text-slate-300">503</div></div>
           </div>
         </Card>
       </div>

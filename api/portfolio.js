@@ -34,12 +34,14 @@ export default async function handler(req, res) {
         var errBody = await accountRes.text();
         return { name: name, error: 'Alpaca API error', status: accountRes.status, detail: errBody, connected: false };
       }
+
       var account = await accountRes.json();
       var positions = await positionsRes.json();
       var equity = parseFloat(account.equity);
       var lastEquity = parseFloat(account.last_equity);
       var dailyPnl = equity - lastEquity;
       var dailyPnlPct = lastEquity > 0 ? (dailyPnl / lastEquity) * 100 : 0;
+
       return {
         name: name,
         connected: true,
@@ -68,16 +70,73 @@ export default async function handler(req, res) {
     }
   }
 
+  async function fetchBenchmark(creds) {
+    // Uses Alpaca market data API to get live SPY price + returns
+    if (!creds.key || !creds.secret) {
+      return { connected: false, error: 'No API keys for benchmark' };
+    }
+    var headers = {
+      'APCA-API-KEY-ID': creds.key,
+      'APCA-API-SECRET-KEY': creds.secret,
+    };
+    try {
+      // Fetch SPY snapshot: latest trade, daily bar, previous daily bar
+      var snapshotRes = await fetch('https://data.alpaca.markets/v2/stocks/SPY/snapshot', { headers: headers });
+      if (!snapshotRes.ok) {
+        var errText = await snapshotRes.text();
+        return { connected: false, error: 'Snapshot failed: ' + errText };
+      }
+      var snapshot = await snapshotRes.json();
+
+      var currentPrice = snapshot.latestTrade ? snapshot.latestTrade.p : null;
+      var prevClose = snapshot.prevDailyBar ? snapshot.prevDailyBar.c : null;
+      var todayChangePct = (currentPrice && prevClose && prevClose > 0)
+        ? ((currentPrice - prevClose) / prevClose) * 100
+        : null;
+
+      // Fetch first trading day of current year for YTD calc
+      var year = new Date().getFullYear();
+      var ytdRes = await fetch(
+        'https://data.alpaca.markets/v2/stocks/SPY/bars?timeframe=1Day&start=' + year + '-01-02&limit=1',
+        { headers: headers }
+      );
+      var ytdReturnPct = null;
+      if (ytdRes.ok) {
+        var ytdData = await ytdRes.json();
+        if (ytdData.bars && ytdData.bars.length > 0) {
+          var yearStartPrice = ytdData.bars[0].o;
+          if (currentPrice && yearStartPrice > 0) {
+            ytdReturnPct = ((currentPrice - yearStartPrice) / yearStartPrice) * 100;
+          }
+        }
+      }
+
+      return {
+        connected: true,
+        symbol: 'SPY',
+        price: currentPrice,
+        prevClose: prevClose,
+        todayChangePct: todayChangePct,
+        ytdReturnPct: ytdReturnPct,
+      };
+    } catch (err) {
+      return { connected: false, error: err.message };
+    }
+  }
+
   try {
+    // Fetch all 3 profiles + benchmark in parallel
     var results = await Promise.all([
       fetchProfile('aggressive', profileCreds.aggressive),
       fetchProfile('growth', profileCreds.growth),
       fetchProfile('conservative', profileCreds.conservative),
+      fetchBenchmark(profileCreds.growth),
     ]);
     var aggressive = results[0];
     var growth = results[1];
     var conservative = results[2];
-    var connected = results.filter(function(p) { return p.connected; });
+    var benchmark = results[3];
+    var connected = [aggressive, growth, conservative].filter(function(p) { return p.connected; });
     var totalValue = connected.reduce(function(sum, p) { return sum + (p.portfolioValue || 0); }, 0);
     var totalPnl = connected.reduce(function(sum, p) { return sum + (p.todayReturn || 0); }, 0);
     var totalPositions = connected.reduce(function(sum, p) { return sum + (p.activePositions || 0); }, 0);
@@ -95,6 +154,7 @@ export default async function handler(req, res) {
         growth: growth,
         conservative: conservative,
       },
+      benchmark: benchmark,
     });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to fetch', message: err.message });
