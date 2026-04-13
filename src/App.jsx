@@ -327,7 +327,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
       <Card>
         <div className="flex justify-between items-center py-1">
           <div><div className="text-[10px] text-slate-500 uppercase mb-1">Total Portfolio Value</div><div className="font-mono text-lg font-bold text-emerald-400">{summary ? '$' + summary.totalValue.toLocaleString() : '$300,000'}</div></div>
-          <div><div className="text-[10px] text-slate-500 uppercase mb-1">Today's Return</div><div className={'font-mono text-sm font-semibold ' + (summary && summary.totalTodayReturn >= 0 ? 'text-emerald-400' : 'text-red-400')}>{summary ? (summary.totalTodayReturn >= 0 ? '+' : '') + '$' + summary.totalTodayReturn.toFixed(2) : '+$0.00'}</div></div>
+          <div><div className="text-[10px] text-slate-500 uppercase mb-1">Today's Return</div><div className={'font-mono text-sm font-semibold ' + (summary && (summary.totalTodayReturn||0) >= 0 ? 'text-emerald-400' : 'text-red-400')}>{summary ? ((summary.totalTodayReturn||0) >= 0 ? '+' : '') + '$' + (summary.totalTodayReturn||0).toFixed(2) : '+$0.00'}</div></div>
           <div><div className="text-[10px] text-slate-500 uppercase mb-1">Total Positions</div><div className="font-mono text-sm font-semibold">{summary ? summary.totalPositions : 0}</div></div>
           <div><div className="text-[10px] text-slate-500 uppercase mb-1">Accounts</div><div className="font-mono text-sm font-semibold">{summary ? summary.connectedProfiles : 0}/3</div></div>
         </div>
@@ -341,9 +341,9 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
             <Card key={cfg.key}>
               <div className="flex items-center gap-2 mb-4"><div className="p-1.5 rounded-lg" style={{ background: cfg.color + '14' }}><cfg.icon size={14} style={{ color: cfg.color }} /></div><span className={'font-semibold text-base ' + cfg.textColor}>{cfg.name}</span></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Portfolio Value</div><div className="font-mono text-sm font-semibold">{connected ? '$' + p.portfolioValue.toLocaleString() : '$100,000'}</div></div>
-                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Today's Return</div><div className={'font-mono text-sm font-semibold ' + (connected && p.todayReturn >= 0 ? 'text-emerald-400' : connected ? 'text-red-400' : 'text-slate-500')}>{connected ? (p.todayReturn >= 0 ? '+' : '') + '$' + p.todayReturn.toFixed(2) : '+$0.00'}</div></div>
-                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Total Return</div><div className={'font-mono text-sm font-semibold ' + (connected && p.totalReturnPct >= 0 ? 'text-emerald-400' : connected ? 'text-red-400' : 'text-slate-500')}>{connected ? (p.totalReturnPct >= 0 ? '+' : '') + p.totalReturnPct.toFixed(2) + '%' : '0.00%'}</div></div>
+                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Portfolio Value</div><div className="font-mono text-sm font-semibold">{connected ? '$' + (p.portfolioValue||0).toLocaleString() : '$100,000'}</div></div>
+                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Today's Return</div><div className={'font-mono text-sm font-semibold ' + (connected && (p.todayReturn||0) >= 0 ? 'text-emerald-400' : connected ? 'text-red-400' : 'text-slate-500')}>{connected ? ((p.todayReturn||0) >= 0 ? '+' : '') + '$' + (p.todayReturn||0).toFixed(2) : '+$0.00'}</div></div>
+                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Total Return</div><div className={'font-mono text-sm font-semibold ' + (connected && (p.totalReturnPct||0) >= 0 ? 'text-emerald-400' : connected ? 'text-red-400' : 'text-slate-500')}>{connected ? ((p.totalReturnPct||0) >= 0 ? '+' : '') + (p.totalReturnPct||0).toFixed(2) + '%' : '0.00%'}</div></div>
                 <div><div className="text-[10px] text-slate-500 uppercase mb-1">Positions</div><div className="font-mono text-sm font-semibold">{connected ? p.activePositions : 0}</div></div>
               </div>
             </Card>
