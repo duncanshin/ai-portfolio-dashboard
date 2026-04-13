@@ -1,28 +1,176 @@
 {
-  "updated_at": "2026-04-13T14:56:35.747822",
+  "updated_at": "2026-04-13T15:01:12.219870",
   "summary": {
-    "totalValue": 0,
-    "totalPnl": 0,
-    "totalPnlPct": 0,
+    "totalValue": 299996.03,
+    "totalPnl": -3.97,
+    "totalPnlPct": -0.0013,
     "paperTrading": true,
     "initialCapital": 100000
   },
   "profiles": {
     "aggressive": {
-      "account": null,
-      "positions": [],
-      "error": "No client"
+      "account": {
+        "equity": 99997.33,
+        "cash": 94095.4,
+        "buying_power": 194092.73,
+        "portfolio_value": 99997.33,
+        "status": "AccountStatus.ACTIVE"
+      },
+      "positions": [
+        {
+          "ticker": "LITE",
+          "shares": 3.0,
+          "avg_entry": 864.5,
+          "current_price": 875.31,
+          "market_value": 2625.93,
+          "unrealized_pnl": 32.43,
+          "unrealized_pnl_pct": 1.25,
+          "side": "PositionSide.LONG"
+        },
+        {
+          "ticker": "SATS",
+          "shares": 26.0,
+          "avg_entry": 127.35,
+          "current_price": 126.0,
+          "market_value": 3276.0,
+          "unrealized_pnl": -35.1,
+          "unrealized_pnl_pct": -1.06,
+          "side": "PositionSide.LONG"
+        }
+      ],
+      "num_positions": 2,
+      "total_pnl": -2.67,
+      "total_pnl_pct": -0.0027
     },
     "growth": {
-      "account": null,
-      "positions": [],
-      "error": "No client"
+      "account": {
+        "equity": 99997.33,
+        "cash": 94095.4,
+        "buying_power": 194092.73,
+        "portfolio_value": 99997.33,
+        "status": "AccountStatus.ACTIVE"
+      },
+      "positions": [
+        {
+          "ticker": "LITE",
+          "shares": 3.0,
+          "avg_entry": 864.5,
+          "current_price": 875.31,
+          "market_value": 2625.93,
+          "unrealized_pnl": 32.43,
+          "unrealized_pnl_pct": 1.25,
+          "side": "PositionSide.LONG"
+        },
+        {
+          "ticker": "SATS",
+          "shares": 26.0,
+          "avg_entry": 127.35,
+          "current_price": 126.0,
+          "market_value": 3276.0,
+          "unrealized_pnl": -35.1,
+          "unrealized_pnl_pct": -1.06,
+          "side": "PositionSide.LONG"
+        }
+      ],
+      "num_positions": 2,
+      "total_pnl": -2.67,
+      "total_pnl_pct": -0.0027
     },
     "conservative": {
-      "account": null,
-      "positions": [],
-      "error": "No client"
+      "account": {
+        "equity": 100001.37,
+        "cash": 96360.75,
+        "buying_power": 196362.12,
+        "portfolio_value": 100001.37,
+        "status": "AccountStatus.ACTIVE"
+      },
+      "positions": [
+        {
+          "ticker": "LITE",
+          "shares": 2.0,
+          "avg_entry": 864.5,
+          "current_price": 875.31,
+          "market_value": 1750.62,
+          "unrealized_pnl": 21.62,
+          "unrealized_pnl_pct": 1.25,
+          "side": "PositionSide.LONG"
+        },
+        {
+          "ticker": "SATS",
+          "shares": 15.0,
+          "avg_entry": 127.35,
+          "current_price": 126.0,
+          "market_value": 1890.0,
+          "unrealized_pnl": -20.25,
+          "unrealized_pnl_pct": -1.06,
+          "side": "PositionSide.LONG"
+        }
+      ],
+      "num_positions": 2,
+      "total_pnl": 1.37,
+      "total_pnl_pct": 0.0014
     }
   },
-  "trades": []
+  "trades": [
+    {
+      "order_id": "a29c82b4-f4cf-44e6-8630-3eec19854ee1",
+      "ticker": "SATS",
+      "side": "buy",
+      "shares": 15,
+      "status": "OrderStatus.PENDING_NEW",
+      "profile": "conservative",
+      "reason": "rotation",
+      "submitted_at": "2026-04-13T11:05:28.479308"
+    },
+    {
+      "order_id": "ce379fdb-c304-4dbe-aa80-670b222f85b0",
+      "ticker": "LITE",
+      "side": "buy",
+      "shares": 2,
+      "status": "OrderStatus.PENDING_NEW",
+      "profile": "conservative",
+      "reason": "rotation",
+      "submitted_at": "2026-04-13T11:05:27.460236"
+    },
+    {
+      "order_id": "4b9ffbeb-89cd-4321-b49b-4cf40c50e9cd",
+      "ticker": "SATS",
+      "side": "buy",
+      "shares": 26,
+      "status": "OrderStatus.PENDING_NEW",
+      "profile": "growth",
+      "reason": "rotation",
+      "submitted_at": "2026-04-13T11:05:24.907166"
+    },
+    {
+      "order_id": "52fab547-0e2b-420c-99fc-b18a08002d5d",
+      "ticker": "LITE",
+      "side": "buy",
+      "shares": 3,
+      "status": "OrderStatus.PENDING_NEW",
+      "profile": "growth",
+      "reason": "rotation",
+      "submitted_at": "2026-04-13T11:05:23.892888"
+    },
+    {
+      "order_id": "56be19db-a246-4fb0-92a6-25b59eac7262",
+      "ticker": "SATS",
+      "side": "buy",
+      "shares": 26,
+      "status": "OrderStatus.PENDING_NEW",
+      "profile": "aggressive",
+      "reason": "rotation",
+      "submitted_at": "2026-04-13T11:05:21.273095"
+    },
+    {
+      "order_id": "7615aef8-28e7-41c8-92d6-53b27dc32ad6",
+      "ticker": "LITE",
+      "side": "buy",
+      "shares": 3,
+      "status": "OrderStatus.PENDING_NEW",
+      "profile": "aggressive",
+      "reason": "rotation",
+      "submitted_at": "2026-04-13T11:05:19.711164"
+    }
+  ]
 }
