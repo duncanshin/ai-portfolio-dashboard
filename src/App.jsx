@@ -346,14 +346,14 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
       <div className="grid grid-cols-4 gap-4">
         {PROFILE_CONFIG.map(function(cfg) {
           var p = profiles ? profiles[cfg.key] : null
-          var connected = p && p.account
-          var portfolioValue = connected ? (p.account.portfolio_value || p.account.equity || 0) : 0
+          var connected = p && p.connected
+          var portfolioValue = connected ? (p.portfolioValue || p.equity || 0) : 0
           var totalPnl = 0
           var totalPnlPct = 0
           var activePositions = 0
           if (connected && p.positions) {
             activePositions = p.positions.length
-            p.positions.forEach(function(pos) { totalPnl += (pos.unrealized_pnl || 0) })
+            p.positions.forEach(function(pos) { totalPnl += (pos.unrealizedPnl || 0) })
             totalPnlPct = portfolioValue > 0 ? (totalPnl / (portfolioValue - totalPnl)) * 100 : 0
           }
           return (
@@ -639,7 +639,7 @@ function TradesTab({ liveData }) {
                         <span className="font-mono font-bold">{pos.ticker}</span>
                         <span className="text-xs text-slate-500">{pos.shares} shares</span>
                       </div>
-                      <div className={`font-mono text-xs ${pos.unrealized_pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{pos.unrealized_pnl >= 0 ? '+' : ''}${pos.unrealized_pnl?.toFixed(2)} ({pos.unrealized_pnl_pct >= 0 ? '+' : ''}{pos.unrealized_pnl_pct?.toFixed(1)}%)</div>
+                      <div className={`font-mono text-xs ${pos.unrealizedPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{pos.unrealizedPnl >= 0 ? '+' : ''}${pos.unrealizedPnl?.toFixed(2)} ({pos.unrealizedPnl_pct >= 0 ? '+' : ''}{pos.unrealizedPnl_pct?.toFixed(1)}%)</div>
                     </div>
                   ))}
                 </div>
