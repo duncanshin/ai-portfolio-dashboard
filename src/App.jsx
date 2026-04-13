@@ -322,7 +322,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
   var connectedProfiles = 0
   if (profiles) {
     Object.values(profiles).forEach(function(prof) {
-      if (prof && prof.account) { connectedProfiles++ }
+      if (prof && prof.connected) { connectedProfiles++ }
       if (prof && prof.positions) { totalPositions += prof.positions.length }
     })
   }
