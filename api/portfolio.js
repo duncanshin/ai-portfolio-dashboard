@@ -73,24 +73,33 @@ export default async function handler(req, res) {
 
   async function fetchBenchmark(creds, sinceDate) {
   // Fetch actual S&P 500 index (^GSPC) from Yahoo Finance
-  // SPY ETF has tracking error vs the real index
+  // Use 5d range to get reliable previous trading day close from bar data
   try {
     var yahooRes = await fetch(
-      'https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?range=2d&interval=1d'
+      'https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?range=5d&interval=1d',
+      { headers: { 'User-Agent': 'Mozilla/5.0' } }
     );
     if (!yahooRes.ok) {
-      return { connected: false, error: 'Yahoo Finance request failed' };
+      return { connected: false, error: 'Yahoo Finance request failed: ' + yahooRes.status };
     }
     var yahooData = await yahooRes.json();
     var meta = yahooData.chart.result[0].meta;
     var currentPrice = meta.regularMarketPrice;
-    var prevClose = meta.chartPreviousClose;
 
+    // Get actual daily closes from bar data — more reliable than meta.chartPreviousClose
+    var closes = yahooData.chart.result[0].indicators.quote[0].close;
+    // Filter out nulls and get the last valid closes
+    var validCloses = closes.filter(function(c) { return c !== null && c !== undefined; });
+    // Previous trading day close is second-to-last valid close
+    var prevClose = validCloses.length >= 2 ? validCloses[validCloses.length - 2] : null;
+
+    // If market is still open, last close is yesterday's — currentPrice is live
+    // If market is closed, last close IS today's final close
     var todayChangePct = (currentPrice && prevClose && prevClose > 0)
       ? ((currentPrice - prevClose) / prevClose) * 100
       : null;
 
-    // $100K equivalent values based on today's move from previous close
+    // $100K equivalent values
     var initialCapital = 100000;
     var portfolioValue = (todayChangePct !== null) ? initialCapital * (1 + todayChangePct / 100) : initialCapital;
     var totalPnl = (todayChangePct !== null) ? portfolioValue - initialCapital : 0;
