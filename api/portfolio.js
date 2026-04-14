@@ -45,6 +45,7 @@ export default async function handler(req, res) {
       return {
         name: name,
         connected: true,
+        createdAt: account.created_at,
         portfolioValue: parseFloat(account.portfolio_value),
         cash: parseFloat(account.cash),
         buyingPower: parseFloat(account.buying_power),
@@ -70,8 +71,7 @@ export default async function handler(req, res) {
     }
   }
 
-  async function fetchBenchmark(creds) {
-    // Uses Alpaca market data API to get live SPY price + returns
+  async function fetchBenchmark(creds, sinceDate) {
     if (!creds.key || !creds.secret) {
       return { connected: false, error: 'No API keys for benchmark' };
     }
@@ -80,7 +80,7 @@ export default async function handler(req, res) {
       'APCA-API-SECRET-KEY': creds.secret,
     };
     try {
-      // Fetch SPY snapshot: latest trade, daily bar, previous daily bar
+      // Get SPY snapshot: latest trade + previous daily bar
       var snapshotRes = await fetch('https://data.alpaca.markets/v2/stocks/SPY/snapshot', { headers: headers });
       if (!snapshotRes.ok) {
         var errText = await snapshotRes.text();
@@ -94,19 +94,23 @@ export default async function handler(req, res) {
         ? ((currentPrice - prevClose) / prevClose) * 100
         : null;
 
-      // Fetch first trading day of current year for YTD calc
-      var year = new Date().getFullYear();
-      var ytdRes = await fetch(
-        'https://data.alpaca.markets/v2/stocks/SPY/bars?timeframe=1Day&start=' + year + '-01-02&limit=1',
-        { headers: headers }
-      );
-      var ytdReturnPct = null;
-      if (ytdRes.ok) {
-        var ytdData = await ytdRes.json();
-        if (ytdData.bars && ytdData.bars.length > 0) {
-          var yearStartPrice = ytdData.bars[0].o;
-          if (currentPrice && yearStartPrice > 0) {
-            ytdReturnPct = ((currentPrice - yearStartPrice) / yearStartPrice) * 100;
+      // Fetch SPY price on the account start date (first bar on or after sinceDate)
+      var returnPct = null;
+      var startPrice = null;
+      var startDateUsed = sinceDate;
+      if (sinceDate && currentPrice) {
+        var barsRes = await fetch(
+          'https://data.alpaca.markets/v2/stocks/SPY/bars?timeframe=1Day&start=' + sinceDate + '&limit=1',
+          { headers: headers }
+        );
+        if (barsRes.ok) {
+          var barsData = await barsRes.json();
+          if (barsData.bars && barsData.bars.length > 0) {
+            startPrice = barsData.bars[0].o;
+            startDateUsed = barsData.bars[0].t;
+            if (startPrice > 0) {
+              returnPct = ((currentPrice - startPrice) / startPrice) * 100;
+            }
           }
         }
       }
@@ -117,7 +121,9 @@ export default async function handler(req, res) {
         price: currentPrice,
         prevClose: prevClose,
         todayChangePct: todayChangePct,
-        ytdReturnPct: ytdReturnPct,
+        returnPct: returnPct,
+        startPrice: startPrice,
+        startDate: startDateUsed,
       };
     } catch (err) {
       return { connected: false, error: err.message };
@@ -125,18 +131,24 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Fetch all 3 profiles + benchmark in parallel
-    var results = await Promise.all([
+    // Fetch all 3 profiles first
+    var profileResults = await Promise.all([
       fetchProfile('aggressive', profileCreds.aggressive),
       fetchProfile('growth', profileCreds.growth),
       fetchProfile('conservative', profileCreds.conservative),
-      fetchBenchmark(profileCreds.growth),
     ]);
-    var aggressive = results[0];
-    var growth = results[1];
-    var conservative = results[2];
-    var benchmark = results[3];
-    var connected = [aggressive, growth, conservative].filter(function(p) { return p.connected; });
+    var aggressive = profileResults[0];
+    var growth = profileResults[1];
+    var conservative = profileResults[2];
+
+    // Use Growth account creation date as benchmark start
+    var benchmarkStartDate = growth.createdAt
+      ? growth.createdAt.split('T')[0]
+      : new Date().toISOString().split('T')[0];
+
+    var benchmark = await fetchBenchmark(profileCreds.growth, benchmarkStartDate);
+
+    var connected = profileResults.filter(function(p) { return p.connected; });
     var totalValue = connected.reduce(function(sum, p) { return sum + (p.portfolioValue || 0); }, 0);
     var totalPnl = connected.reduce(function(sum, p) { return sum + (p.todayReturn || 0); }, 0);
     var totalPositions = connected.reduce(function(sum, p) { return sum + (p.activePositions || 0); }, 0);
