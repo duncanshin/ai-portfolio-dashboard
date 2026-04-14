@@ -100,13 +100,13 @@ export default async function handler(req, res) {
       var startDateUsed = sinceDate;
       if (sinceDate && currentPrice) {
         var barsRes = await fetch(
-          'https://data.alpaca.markets/v2/stocks/SPY/bars?timeframe=1Day&start=' + sinceDate + '&limit=1',
+          'https://data.alpaca.markets/v2/stocks/SPY/bars?timeframe=1Day&end=' + sinceDate + '&limit=1',
           { headers: headers }
         );
         if (barsRes.ok) {
           var barsData = await barsRes.json();
           if (barsData.bars && barsData.bars.length > 0) {
-            startPrice = barsData.bars[0].o;
+            startPrice = barsData.bars[0].c;
             startDateUsed = barsData.bars[0].t;
             if (startPrice > 0) {
               returnPct = ((currentPrice - startPrice) / startPrice) * 100;
