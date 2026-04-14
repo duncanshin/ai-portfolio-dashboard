@@ -101,14 +101,14 @@ export default async function handler(req, res) {
       if (sinceDate && currentPrice) {
         var lookbackStart = new Date(new Date(sinceDate).getTime() - 10 * 86400000).toISOString().split('T')[0];
         var barsRes = await fetch(
-          'https://data.alpaca.markets/v2/stocks/SPY/bars?timeframe=1Day&start=' + lookbackStart + '&end=' + sinceDate + '&limit=1&sort=desc',
+          'https://data.alpaca.markets/v2/stocks/SPY/bars?timeframe=1Day&start=' + lookbackStart + '&end=' + sinceDate + '&limit=10',
           { headers: headers }
         );
         if (barsRes.ok) {
           var barsData = await barsRes.json();
           if (barsData.bars && barsData.bars.length > 0) {
-            startPrice = barsData.bars[0].c;
-            startDateUsed = barsData.bars[0].t;
+            startPrice = barsData.bars[barsData.bars.length - 1].c;
+            startDateUsed = barsData.bars[barsData.bars.length - 1].t;
             if (startPrice > 0) {
               returnPct = ((currentPrice - startPrice) / startPrice) * 100;
             }
