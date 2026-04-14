@@ -72,89 +72,45 @@ export default async function handler(req, res) {
   }
 
   async function fetchBenchmark(creds, sinceDate) {
-  if (!creds.key || !creds.secret) {
-    return { connected: false, error: 'No API keys for benchmark' };
-  }
-  var headers = {
-    'APCA-API-KEY-ID': creds.key,
-    'APCA-API-SECRET-KEY': creds.secret,
-  };
+  // Fetch actual S&P 500 index (^GSPC) from Yahoo Finance
+  // SPY ETF has tracking error vs the real index
   try {
-    // Get SPY snapshot: latest trade + previous daily bar
-    var snapshotRes = await fetch('https://data.alpaca.markets/v2/stocks/SPY/snapshot', { headers: headers });
-    if (!snapshotRes.ok) {
-      var errText = await snapshotRes.text();
-      return { connected: false, error: 'Snapshot failed: ' + errText };
+    var yahooRes = await fetch(
+      'https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?range=2d&interval=1d'
+    );
+    if (!yahooRes.ok) {
+      return { connected: false, error: 'Yahoo Finance request failed' };
     }
-    var snapshot = await snapshotRes.json();
+    var yahooData = await yahooRes.json();
+    var meta = yahooData.chart.result[0].meta;
+    var currentPrice = meta.regularMarketPrice;
+    var prevClose = meta.chartPreviousClose;
 
-    var currentPrice = snapshot.latestTrade ? snapshot.latestTrade.p : null;
-    var prevClose = snapshot.prevDailyBar ? snapshot.prevDailyBar.c : null;
     var todayChangePct = (currentPrice && prevClose && prevClose > 0)
       ? ((currentPrice - prevClose) / prevClose) * 100
       : null;
 
-    // Get inception price: use prev close from snapshot as baseline
-    // On day 1, prev close IS the price right before we started
-    // On future days, we fetch the bar from the trading day before inception
-    var startPrice = null;
-    var startDateUsed = sinceDate;
-    var returnPct = null;
-
-    if (sinceDate && currentPrice) {
-      // Try to fetch the closing price from the trading day before inception
-      var lookbackStart = new Date(new Date(sinceDate).getTime() - 15 * 86400000).toISOString().split('T')[0];
-      try {
-        var barsRes = await fetch(
-          'https://data.alpaca.markets/v2/stocks/SPY/bars?timeframe=1Day&start=' + lookbackStart + '&end=' + sinceDate + '&limit=10',
-          { headers: headers }
-        );
-        if (barsRes.ok) {
-          var barsData = await barsRes.json();
-          if (barsData.bars && barsData.bars.length > 0) {
-            startPrice = barsData.bars[barsData.bars.length - 1].c;
-            startDateUsed = barsData.bars[barsData.bars.length - 1].t;
-          }
-        }
-      } catch (e) {
-        // fall through to fallback
-      }
-
-      // Fallback: use prev close from snapshot
-      if (!startPrice && prevClose) {
-        startPrice = prevClose;
-      }
-
-      if (startPrice && startPrice > 0) {
-        returnPct = ((currentPrice - startPrice) / startPrice) * 100;
-      }
-    }
-
-    // Compute $100K equivalent values
+    // $100K equivalent values based on today's move from previous close
     var initialCapital = 100000;
-    var portfolioValue = (returnPct !== null) ? initialCapital * (1 + returnPct / 100) : initialCapital;
-    var totalPnl = (returnPct !== null) ? portfolioValue - initialCapital : 0;
-    var dailyPnl = (todayChangePct !== null)
-      ? initialCapital * (todayChangePct / 100)
-      : 0;
+    var portfolioValue = (todayChangePct !== null) ? initialCapital * (1 + todayChangePct / 100) : initialCapital;
+    var totalPnl = (todayChangePct !== null) ? portfolioValue - initialCapital : 0;
+    var dailyPnl = totalPnl;
     var dailyPnlPct = todayChangePct || 0;
 
     return {
       connected: true,
-      symbol: 'SPY',
+      symbol: '^GSPC',
       price: currentPrice,
       prevClose: prevClose,
       todayChangePct: todayChangePct,
-      returnPct: returnPct,
-      startPrice: startPrice,
-      startDate: startDateUsed,
+      returnPct: todayChangePct,
       portfolioValue: portfolioValue,
       totalPnl: totalPnl,
       dailyPnl: dailyPnl,
       dailyPnlPct: dailyPnlPct,
     };
   } catch (err) {
-    return { connected: false, error: err.message };
+    return { connected: false, error: 'Benchmark fetch failed: ' + err.message };
   }
 }
 
