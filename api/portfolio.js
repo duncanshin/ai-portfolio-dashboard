@@ -99,8 +99,9 @@ export default async function handler(req, res) {
       var startPrice = null;
       var startDateUsed = sinceDate;
       if (sinceDate && currentPrice) {
+        var lookbackStart = new Date(new Date(sinceDate).getTime() - 10 * 86400000).toISOString().split('T')[0];
         var barsRes = await fetch(
-          'https://data.alpaca.markets/v2/stocks/SPY/bars?timeframe=1Day&end=' + sinceDate + '&limit=1',
+          'https://data.alpaca.markets/v2/stocks/SPY/bars?timeframe=1Day&start=' + lookbackStart + '&end=' + sinceDate + '&limit=1&sort=desc',
           { headers: headers }
         );
         if (barsRes.ok) {
