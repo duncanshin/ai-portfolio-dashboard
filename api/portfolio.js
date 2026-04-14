@@ -72,34 +72,39 @@ export default async function handler(req, res) {
   }
 
   async function fetchBenchmark(creds, sinceDate) {
-    if (!creds.key || !creds.secret) {
-      return { connected: false, error: 'No API keys for benchmark' };
+  if (!creds.key || !creds.secret) {
+    return { connected: false, error: 'No API keys for benchmark' };
+  }
+  var headers = {
+    'APCA-API-KEY-ID': creds.key,
+    'APCA-API-SECRET-KEY': creds.secret,
+  };
+  try {
+    // Get SPY snapshot: latest trade + previous daily bar
+    var snapshotRes = await fetch('https://data.alpaca.markets/v2/stocks/SPY/snapshot', { headers: headers });
+    if (!snapshotRes.ok) {
+      var errText = await snapshotRes.text();
+      return { connected: false, error: 'Snapshot failed: ' + errText };
     }
-    var headers = {
-      'APCA-API-KEY-ID': creds.key,
-      'APCA-API-SECRET-KEY': creds.secret,
-    };
-    try {
-      // Get SPY snapshot: latest trade + previous daily bar
-      var snapshotRes = await fetch('https://data.alpaca.markets/v2/stocks/SPY/snapshot', { headers: headers });
-      if (!snapshotRes.ok) {
-        var errText = await snapshotRes.text();
-        return { connected: false, error: 'Snapshot failed: ' + errText };
-      }
-      var snapshot = await snapshotRes.json();
+    var snapshot = await snapshotRes.json();
 
-      var currentPrice = snapshot.latestTrade ? snapshot.latestTrade.p : null;
-      var prevClose = snapshot.prevDailyBar ? snapshot.prevDailyBar.c : null;
-      var todayChangePct = (currentPrice && prevClose && prevClose > 0)
-        ? ((currentPrice - prevClose) / prevClose) * 100
-        : null;
+    var currentPrice = snapshot.latestTrade ? snapshot.latestTrade.p : null;
+    var prevClose = snapshot.prevDailyBar ? snapshot.prevDailyBar.c : null;
+    var todayChangePct = (currentPrice && prevClose && prevClose > 0)
+      ? ((currentPrice - prevClose) / prevClose) * 100
+      : null;
 
-      // Fetch SPY price on the account start date (first bar on or after sinceDate)
-      var returnPct = null;
-      var startPrice = null;
-      var startDateUsed = sinceDate;
-      if (sinceDate && currentPrice) {
-        var lookbackStart = new Date(new Date(sinceDate).getTime() - 10 * 86400000).toISOString().split('T')[0];
+    // Get inception price: use prev close from snapshot as baseline
+    // On day 1, prev close IS the price right before we started
+    // On future days, we fetch the bar from the trading day before inception
+    var startPrice = null;
+    var startDateUsed = sinceDate;
+    var returnPct = null;
+
+    if (sinceDate && currentPrice) {
+      // Try to fetch the closing price from the trading day before inception
+      var lookbackStart = new Date(new Date(sinceDate).getTime() - 15 * 86400000).toISOString().split('T')[0];
+      try {
         var barsRes = await fetch(
           'https://data.alpaca.markets/v2/stocks/SPY/bars?timeframe=1Day&start=' + lookbackStart + '&end=' + sinceDate + '&limit=10',
           { headers: headers }
@@ -109,27 +114,49 @@ export default async function handler(req, res) {
           if (barsData.bars && barsData.bars.length > 0) {
             startPrice = barsData.bars[barsData.bars.length - 1].c;
             startDateUsed = barsData.bars[barsData.bars.length - 1].t;
-            if (startPrice > 0) {
-              returnPct = ((currentPrice - startPrice) / startPrice) * 100;
-            }
           }
         }
+      } catch (e) {
+        // fall through to fallback
       }
 
-      return {
-        connected: true,
-        symbol: 'SPY',
-        price: currentPrice,
-        prevClose: prevClose,
-        todayChangePct: todayChangePct,
-        returnPct: returnPct,
-        startPrice: startPrice,
-        startDate: startDateUsed,
-      };
-    } catch (err) {
-      return { connected: false, error: err.message };
+      // Fallback: use prev close from snapshot
+      if (!startPrice && prevClose) {
+        startPrice = prevClose;
+      }
+
+      if (startPrice && startPrice > 0) {
+        returnPct = ((currentPrice - startPrice) / startPrice) * 100;
+      }
     }
+
+    // Compute $100K equivalent values
+    var initialCapital = 100000;
+    var portfolioValue = (returnPct !== null) ? initialCapital * (1 + returnPct / 100) : initialCapital;
+    var totalPnl = (returnPct !== null) ? portfolioValue - initialCapital : 0;
+    var dailyPnl = (todayChangePct !== null)
+      ? initialCapital * (todayChangePct / 100)
+      : 0;
+    var dailyPnlPct = todayChangePct || 0;
+
+    return {
+      connected: true,
+      symbol: 'SPY',
+      price: currentPrice,
+      prevClose: prevClose,
+      todayChangePct: todayChangePct,
+      returnPct: returnPct,
+      startPrice: startPrice,
+      startDate: startDateUsed,
+      portfolioValue: portfolioValue,
+      totalPnl: totalPnl,
+      dailyPnl: dailyPnl,
+      dailyPnlPct: dailyPnlPct,
+    };
+  } catch (err) {
+    return { connected: false, error: err.message };
   }
+}
 
   try {
     // Fetch all 3 profiles first
