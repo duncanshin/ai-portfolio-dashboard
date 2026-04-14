@@ -142,9 +142,7 @@ export default async function handler(req, res) {
     var conservative = profileResults[2];
 
     // Use Growth account creation date as benchmark start
-    var benchmarkStartDate = growth.createdAt
-      ? growth.createdAt.split('T')[0]
-      : new Date().toISOString().split('T')[0];
+    var benchmarkStartDate = '2026-04-13'; // Inception date: all profiles started trading this date
 
     var benchmark = await fetchBenchmark(profileCreds.growth, benchmarkStartDate);
 
