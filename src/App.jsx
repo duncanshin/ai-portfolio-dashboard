@@ -305,9 +305,10 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
       safeFetch('/api/history?profile=growth&period=' + periodParam + '&timeframe=1D' + dateParams),
       safeFetch('/api/history?profile=conservative&period=' + periodParam + '&timeframe=1D' + dateParams),
       safeFetch('/api/benchmark?period=' + periodParam + '&timeframe=1D' + dateParams),
+      safeFetch('/api/portfolio'),
     ])
       .then(function(results) {
-        var agg = results[0], gro = results[1], con = results[2], bench = results[3]
+        var agg = results[0], gro = results[1], con = results[2], bench = results[3], live = results[4]
         var dateMap = {}
         function addPoints(data, key, field) {
           if (!data || !data.points) return
@@ -320,11 +321,29 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
         addPoints(gro, 'growth', 'equity')
         addPoints(con, 'conservative', 'equity')
         addPoints(bench, 'spy', 'spy')
-        // Pad series with every trading day from start → end so X-axis spans the full
-        // requested range even when only 1 data point exists. Today's point anchors left.
+        // Override today's point with live portfolio values so chart matches profile cards.
         var today = new Date().toISOString().split('T')[0]
+        if (live && live.profiles) {
+          if (!dateMap[today]) dateMap[today] = { date: today }
+          ;['aggressive', 'growth', 'conservative'].forEach(function(k) {
+            var p = live.profiles[k]
+            if (p && p.connected) {
+              var v = p.portfolioValue || p.equity
+              if (v != null && v > 0) dateMap[today][k] = v
+            }
+          })
+          if (live.benchmark && !live.benchmark.notStarted && live.benchmark.portfolioValue) {
+            dateMap[today].spy = live.benchmark.portfolioValue
+          }
+        }
+        // Pad series with every trading day from start → period-forward end so X-axis
+        // spans the full selected range. Today's point then anchors at the left edge.
+        var periodDays = { '1W': 7, '1M': 30, '3M': 90, '6M': 180, '1A': 365, 'all': 90 }
+        var forward = new Date('2026-04-15T00:00:00Z')
+        forward.setUTCDate(forward.getUTCDate() + (periodDays[historyPeriod] || 30))
+        var periodEnd = forward.toISOString().split('T')[0]
         var rangeStart = isCustomRange ? customStart : '2026-04-15'
-        var rangeEnd = isCustomRange ? customEnd : today
+        var rangeEnd = isCustomRange ? customEnd : periodEnd
         if (rangeStart < '2026-04-15') rangeStart = '2026-04-15'
         var cursor = new Date(rangeStart + 'T00:00:00Z')
         var endD = new Date(rangeEnd + 'T00:00:00Z')
@@ -422,10 +441,10 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
       <div>
         <h2 className="text-lg font-semibold">Paper Trading Performance</h2><p className="text-sm text-slate-500 mb-3">Live equity curves from Alpaca paper trading accounts</p>
         <Card>
-          {/* Header row: title · date inputs · inline legend · period buttons */}
-          <div className="flex items-center flex-wrap gap-3 mb-3">
+          {/* Single-row header: title + date inputs · centered legend · period buttons */}
+          <div className="flex items-center gap-3 mb-3">
             <div className="flex items-center gap-2.5">
-              <h3 className="font-semibold text-sm">Equity Curves</h3>
+              <h3 className="font-semibold text-sm whitespace-nowrap">Equity Curves</h3>
               <div className="flex items-center gap-1.5">
                 <input type="date" value={customStart} onChange={function(e) { setCustomStart(e.target.value); setIsCustomRange(true) }}
                   className="bg-[#161b2b] border border-white/[0.06] rounded-md px-1.5 py-0.5 text-[11px] text-slate-400 font-mono focus:outline-none focus:border-emerald-500/40" />
@@ -434,25 +453,25 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
                   className="bg-[#161b2b] border border-white/[0.06] rounded-md px-1.5 py-0.5 text-[11px] text-slate-400 font-mono focus:outline-none focus:border-emerald-500/40" />
               </div>
             </div>
-            <div className="flex items-center gap-0.5 ml-auto">
+            <div className="flex-1 flex justify-center">
+              <div className="flex items-center gap-3 px-2.5 py-1 rounded-md border border-white/[0.05] bg-[#0c1019]">
+                {[
+                  { label: 'Aggressive', color: '#f97316' },
+                  { label: 'Growth', color: '#10b981' },
+                  { label: 'Conservative', color: '#3b82f6' },
+                  { label: 'S&P 500', color: '#94a3b8', dashed: true },
+                ].map(function(item) { return (
+                  <div key={item.label} className="flex items-center gap-1.5">
+                    <svg width="14" height="3"><line x1="0" y1="1.5" x2="14" y2="1.5" stroke={item.color} strokeWidth="2" strokeDasharray={item.dashed ? '4 2' : 'none'} /></svg>
+                    <span className="text-[10px] text-slate-400 whitespace-nowrap">{item.label}</span>
+                  </div>
+                )})}
+              </div>
+            </div>
+            <div className="flex items-center gap-0.5">
               {HISTORY_PERIODS.map(function(p) { return (
                 <button key={p.value} onClick={function() { setIsCustomRange(false); setHistoryPeriod(p.value); setCustomStart('2026-04-15'); setCustomEnd(new Date().toISOString().split('T')[0]) }}
                   className={'px-2 py-0.5 rounded text-[10px] font-medium transition-all ' + (!isCustomRange && historyPeriod === p.value ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300')}>{p.label}</button>
-              )})}
-            </div>
-          </div>
-          <div className="flex justify-center mb-3">
-            <div className="flex items-center gap-3 px-2.5 py-1 rounded-md border border-white/[0.05] bg-[#0c1019]">
-              {[
-                { label: 'Aggressive', color: '#f97316' },
-                { label: 'Growth', color: '#10b981' },
-                { label: 'Conservative', color: '#3b82f6' },
-                { label: 'S&P 500', color: '#94a3b8', dashed: true },
-              ].map(function(item) { return (
-                <div key={item.label} className="flex items-center gap-1.5">
-                  <svg width="14" height="3"><line x1="0" y1="1.5" x2="14" y2="1.5" stroke={item.color} strokeWidth="2" strokeDasharray={item.dashed ? '4 2' : 'none'} /></svg>
-                  <span className="text-[10px] text-slate-400">{item.label}</span>
-                </div>
               )})}
             </div>
           </div>
@@ -487,7 +506,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
                     <linearGradient id="grad-con" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3b82f6" stopOpacity={0.15} /><stop offset="100%" stopColor="#3b82f6" stopOpacity={0} /></linearGradient>
                   </defs>
                   <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" />
-                  <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} interval={tickInterval} tickFormatter={xFmt} />
+                  <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} interval={tickInterval} tickFormatter={xFmt} padding={{ left: 0, right: 0 }} />
                   <YAxis type="number" domain={yDomain} tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={function(v) { return formatDollar(v) }} allowDataOverflow={false} />
                   <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }} formatter={function(v) { return [formatDollar(v)] }} />
                   <Area type="monotone" dataKey="aggressive"   stroke="#f97316" strokeWidth={2} fill="url(#grad-agg)" dot={showDots ? { r: 3, fill: '#f97316' } : false} name="Aggressive" connectNulls />
