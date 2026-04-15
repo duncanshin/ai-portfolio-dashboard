@@ -649,8 +649,8 @@ function ProfilesTab({ metrics, inflationAdj }) {
   const params = [
     { l: 'Strategy', a: 'Pure momentum', g: 'Momentum + Quality', c: 'Momentum + Quality' },
     { l: 'Positions', a: '10', g: '8', c: '12' },{ l: 'Max Position Size', a: '15%', g: '10%', c: '6%' },
-    { l: 'Trailing Stop', a: '10%', g: '11%', c: '11%' },{ l: 'Weekly DD → 50% Cash', a: '6%', g: '4%', c: '4%' },
-    { l: 'Critical DD → 100% Cash', a: '12%', g: '7%', c: '7%' },{ l: 'Max Sector', a: '40%', g: '40%', c: '40%' },
+    { l: 'Trailing Stop', a: '10%', g: '11%', c: '11%' },{ l: 'Weekly DD → 50% Cash', a: '8%', g: '6%', c: '6%' },
+    { l: 'Critical DD → 100% Cash', a: '15%', g: '10%', c: '10%' },{ l: 'Max Sector', a: '40%', g: '40%', c: '40%' },
     { l: 'VIX Caution (30+)', a: 'Max 3 pos', g: 'Max 2 pos', c: 'Max 5 pos' },
     { l: 'VIX Danger (40+)', a: 'Max 2 pos', g: 'Max 1 pos', c: '100% defensive' },
     { l: 'Rebalance', a: 'Weekly', g: 'Bi-weekly', c: 'Bi-weekly' },
