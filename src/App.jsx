@@ -35,6 +35,20 @@ function buildMergedFromJson(json) {
 
 const dateToLabel = (d) => { const [y, m] = d.split('-'); const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return `${months[parseInt(m)-1]} ${y}` }
 
+// Unified dollar formatter: auto-scale to K / M / B / T.
+// <$1K → "$750" · <$1M → "$285.12K" · <$1B → "$11.55M" · <$1T → "$11.55B" · else "$1.15T".
+// Whole-K values drop decimals ($100K, not $100.00K); larger units always show 2 decimals.
+const formatDollar = (v) => {
+  if (v == null || isNaN(v)) return '—'
+  const sign = v < 0 ? '-' : ''
+  const a = Math.abs(v)
+  if (a < 1000) return `${sign}$${a.toFixed(0)}`
+  if (a < 1e6)  { const n = a / 1e3;  return `${sign}$${n % 1 === 0 ? n.toFixed(0) : n.toFixed(2)}K` }
+  if (a < 1e9)  return `${sign}$${(a / 1e6).toFixed(2)}M`
+  if (a < 1e12) return `${sign}$${(a / 1e9).toFixed(2)}B`
+  return `${sign}$${(a / 1e12).toFixed(2)}T`
+}
+
 // ═══════════════════════════════════════════════════════════════
 // FIX: Normalize all curves so the selected start date = $100K.
 // This way changing the start date always shows growth from $100K,
@@ -226,8 +240,8 @@ function EquityCurveChart({ data, startIdx, endIdx, height = 340, crisisShade })
         </defs>
         <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" />
         <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} interval={Math.max(1, Math.floor(slicedData.length / 10))} tickFormatter={v => v.split('-')[0]} />
-        <YAxis scale="log" domain={[minVal, 'auto']} tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={v => v >= 1000000 ? `$${(v/1000000).toFixed(1)}M` : `$${(v / 1000).toFixed(0)}K`} allowDataOverflow={true} />
-        <Tooltip contentStyle={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 12 }} formatter={v => [`$${v.toLocaleString()}`]} labelFormatter={l => dateToLabel(l)} />
+        <YAxis scale="log" domain={[minVal, 'auto']} tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={v => formatDollar(v)} allowDataOverflow={true} />
+        <Tooltip contentStyle={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 12 }} formatter={v => [formatDollar(v)]} labelFormatter={l => dateToLabel(l)} />
         {crisisShade && <ReferenceArea x1={crisisShade[0]} x2={crisisShade[1]} fill="#ef4444" fillOpacity={0.08} stroke="#ef4444" strokeOpacity={0.2} strokeDasharray="3 3" label={{ value: 'Crisis Period', position: 'insideTop', fill: '#ef4444', fontSize: 10, opacity: 0.6 }} />}
         <Area type="monotone" dataKey="Aggressive" stroke="#f97316" strokeWidth={2} fill="url(#grad-aggressive)" dot={false} />
         <Area type="monotone" dataKey="Growth" stroke="#10b981" strokeWidth={2} fill="url(#grad-growth)" dot={false} />
@@ -336,8 +350,8 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
 
       <Card>
         <div className="flex justify-between items-center py-1">
-          <div><div className="text-[10px] text-slate-500 uppercase mb-1">Total Portfolio Value</div><div className="font-mono text-lg font-bold text-emerald-400">{summary ? '$' + (summary.totalValue||0).toLocaleString() : '$300,000'}</div></div>
-          <div><div className="text-[10px] text-slate-500 uppercase mb-1">Unrealized P&L</div><div className={'font-mono text-sm font-semibold ' + (summary && (summary.totalPnl||0) >= 0 ? 'text-emerald-400' : 'text-red-400')}>{summary ? ((summary.totalPnl||0) >= 0 ? '+' : '') + '$' + (summary.totalPnl||0).toFixed(2) : '+$0.00'}</div></div>
+          <div><div className="text-[10px] text-slate-500 uppercase mb-1">Total Portfolio Value</div><div className="font-mono text-lg font-bold text-emerald-400">{formatDollar(summary ? (summary.totalValue || 0) : 300000)}</div></div>
+          <div><div className="text-[10px] text-slate-500 uppercase mb-1">Unrealized P&L</div><div className={'font-mono text-sm font-semibold ' + (summary && (summary.totalPnl||0) >= 0 ? 'text-emerald-400' : 'text-red-400')}>{summary ? ((summary.totalPnl||0) >= 0 ? '+' : '') + formatDollar(summary.totalPnl||0) : '+$0'}</div></div>
           <div><div className="text-[10px] text-slate-500 uppercase mb-1">Total Positions</div><div className="font-mono text-sm font-semibold">{totalPositions}</div></div>
           <div><div className="text-[10px] text-slate-500 uppercase mb-1">Accounts</div><div className="font-mono text-sm font-semibold">{connectedProfiles}/3</div></div>
         </div>
@@ -360,23 +374,33 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
             <Card key={cfg.key}>
               <div className="flex items-center gap-2 mb-4"><div className="p-1.5 rounded-lg" style={{ background: cfg.color + '14' }}><cfg.icon size={14} style={{ color: cfg.color }} /></div><span className={'font-semibold text-base ' + cfg.textColor}>{cfg.name}</span></div>
               <div className="grid grid-cols-2 gap-3">
-                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Portfolio Value</div><div className="font-mono text-sm font-semibold">{connected ? '$' + portfolioValue.toLocaleString(undefined, {maximumFractionDigits:0}) : '$100,000'}</div></div>
-                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Unrealized P&L</div><div className={'font-mono text-sm font-semibold ' + (connected && totalPnl >= 0 ? 'text-emerald-400' : connected ? 'text-red-400' : 'text-slate-500')}>{connected ? (totalPnl >= 0 ? '+' : '') + '$' + totalPnl.toFixed(2) : '+$0.00'}</div></div>
+                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Portfolio Value</div><div className="font-mono text-sm font-semibold">{formatDollar(connected ? portfolioValue : 100000)}</div></div>
+                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Unrealized P&L</div><div className={'font-mono text-sm font-semibold ' + (connected && totalPnl >= 0 ? 'text-emerald-400' : connected ? 'text-red-400' : 'text-slate-500')}>{connected ? (totalPnl >= 0 ? '+' : '') + formatDollar(totalPnl) : '+$0'}</div></div>
                 <div><div className="text-[10px] text-slate-500 uppercase mb-1">P&L %</div><div className={'font-mono text-sm font-semibold ' + (connected && totalPnlPct >= 0 ? 'text-emerald-400' : connected ? 'text-red-400' : 'text-slate-500')}>{connected ? (totalPnlPct >= 0 ? '+' : '') + totalPnlPct.toFixed(2) + '%' : '0.00%'}</div></div>
                 <div><div className="text-[10px] text-slate-500 uppercase mb-1">Positions</div><div className="font-mono text-sm font-semibold">{connected ? activePositions : 0}</div></div>
               </div>
             </Card>
           )
         })}
-        <Card>
-          <div className="flex items-center gap-2 mb-4"><div className="p-1.5 rounded-lg" style={{ background: 'rgba(148,163,184,0.08)' }}><BarChart3 size={14} style={{ color: '#94a3b8' }} /></div><span className="font-semibold text-base text-slate-400">S&P 500</span></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><div className="text-[10px] text-slate-500 uppercase mb-1">Portfolio Value</div><div className="font-mono text-sm font-semibold text-slate-300">{liveData && liveData.benchmark && liveData.benchmark.portfolioValue != null ? "$" + liveData.benchmark.portfolioValue.toLocaleString(undefined, {maximumFractionDigits: 0}) : "-"}</div></div>
-            <div><div className="text-[10px] text-slate-500 uppercase mb-1">Unrealized P&L</div><div className={"font-mono text-sm font-semibold " + (liveData && liveData.benchmark && liveData.benchmark.totalPnl != null ? (liveData.benchmark.totalPnl >= 0 ? "text-emerald-400" : "text-red-400") : "text-slate-500")}>{liveData && liveData.benchmark && liveData.benchmark.totalPnl != null ? (liveData.benchmark.totalPnl >= 0 ? "+$" : "-$") + Math.abs(liveData.benchmark.totalPnl).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : "-"}</div></div>
-            <div><div className="text-[10px] text-slate-500 uppercase mb-1">P&L %</div><div className={"font-mono text-sm font-semibold " + (liveData && liveData.benchmark && liveData.benchmark.dailyPnlPct != null ? (liveData.benchmark.dailyPnlPct >= 0 ? "text-emerald-400" : "text-red-400") : "text-slate-500")}>{liveData && liveData.benchmark && liveData.benchmark.dailyPnlPct != null ? (liveData.benchmark.dailyPnlPct >= 0 ? "+" : "") + liveData.benchmark.dailyPnlPct.toFixed(2) + "%" : "-"}</div></div>
-            <div><div className="text-[10px] text-slate-500 uppercase mb-1">Positions</div><div className="font-mono text-sm font-semibold text-slate-300">503</div></div>
-          </div>
-        </Card>
+        {(function() {
+          var b = liveData && liveData.benchmark ? liveData.benchmark : null
+          var preOpen = !b || b.notStarted
+          var value = preOpen ? 100000 : (b.portfolioValue != null ? b.portfolioValue : 100000)
+          var pnl = preOpen ? 0 : (b.totalPnl != null ? b.totalPnl : 0)
+          var pnlPct = preOpen ? 0 : (b.totalPnlPct != null ? b.totalPnlPct : (b.dailyPnlPct != null ? b.dailyPnlPct : 0))
+          var positions = preOpen ? 0 : 1
+          return (
+            <Card>
+              <div className="flex items-center gap-2 mb-4"><div className="p-1.5 rounded-lg" style={{ background: 'rgba(148,163,184,0.08)' }}><BarChart3 size={14} style={{ color: '#94a3b8' }} /></div><span className="font-semibold text-base text-slate-400">S&P 500</span>{preOpen && <span className="ml-auto text-[9px] text-amber-400 uppercase tracking-wide">Starts at market open</span>}</div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Portfolio Value</div><div className="font-mono text-sm font-semibold text-slate-300">{formatDollar(value)}</div></div>
+                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Unrealized P&L</div><div className={"font-mono text-sm font-semibold " + (preOpen ? "text-slate-500" : (pnl >= 0 ? "text-emerald-400" : "text-red-400"))}>{(pnl >= 0 ? "+" : "") + formatDollar(pnl)}</div></div>
+                <div><div className="text-[10px] text-slate-500 uppercase mb-1">P&L %</div><div className={"font-mono text-sm font-semibold " + (preOpen ? "text-slate-500" : (pnlPct >= 0 ? "text-emerald-400" : "text-red-400"))}>{(pnlPct >= 0 ? "+" : "") + pnlPct.toFixed(2) + "%"}</div></div>
+                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Positions</div><div className="font-mono text-sm font-semibold text-slate-300">{positions}</div></div>
+              </div>
+            </Card>
+          )
+        })()}
       </div>
 
       <div>
@@ -412,8 +436,8 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
                 </defs>
                 <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" />
                 <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={function(v) { var parts = v.split('-'); return parseInt(parts[1]) + '/' + parseInt(parts[2]) }} />
-                <YAxis type="number" tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={function(v) { return v < 0 ? '$0k' : '$' + (v/1000).toFixed(0) + 'k' }} domain={[0, function(dataMax) { return Math.ceil(dataMax / 1000) * 1000 }]} allowDataOverflow={true} />
-                <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }} formatter={function(v) { return ['$' + v.toLocaleString()] }} />
+                <YAxis type="number" tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={function(v) { return v < 0 ? '$0' : formatDollar(v) }} domain={[0, function(dataMax) { return Math.ceil(dataMax / 1000) * 1000 }]} allowDataOverflow={true} />
+                <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }} formatter={function(v) { return [formatDollar(v)] }} />
                 <Area type="monotone" dataKey="aggressive" stroke="#f97316" strokeWidth={2} fill="url(#grad-agg)" dot={false} name="Aggressive" />
                 <Area type="monotone" dataKey="growth" stroke="#10b981" strokeWidth={2} fill="url(#grad-gro)" dot={false} name="Growth" />
                 <Area type="monotone" dataKey="conservative" stroke="#3b82f6" strokeWidth={2} fill="url(#grad-con)" dot={false} name="Conservative" />
@@ -450,7 +474,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
 
 function CapitalSlider({ capital, setCapital, metrics }) {
   const presets = [2000, 10000, 100000, 1000000]
-  const fmt = (v) => v >= 1000000 ? `$${(v/1000000).toFixed(v % 1000000 === 0 ? 0 : 2)}M` : v >= 1000 ? `$${(v/1000).toFixed(0)}K` : `$${v}`
+  const fmt = formatDollar
   const endVals = metrics ? [
     { k: 'Aggressive', color: '#f97316', v: metrics.Aggressive?.endVal },
     { k: 'Growth', color: '#10b981', v: metrics.Growth?.endVal },
@@ -482,7 +506,7 @@ function CapitalSlider({ capital, setCapital, metrics }) {
             <div key={ev.k}>
               <div className="text-[10px] text-slate-500 uppercase">{ev.k} End Value</div>
               <div className="font-mono text-sm font-semibold" style={{ color: ev.color }}>
-                {ev.v != null ? (ev.v >= 1000000 ? `$${(ev.v/1000000).toFixed(2)}M` : `$${(ev.v/1000).toFixed(0)}K`) : '—'}
+                {formatDollar(ev.v)}
               </div>
             </div>
           ))}
@@ -495,7 +519,7 @@ function CapitalSlider({ capital, setCapital, metrics }) {
 function BacktestTab({ metrics, inflationAdj, setInflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates, capital, setCapital }) {
   const [crisisShade, setCrisisShade] = useState(null)
   const m = metrics; const years = ((endIdx - startIdx) / 12).toFixed(1)
-  const fmtVal = (v) => v >= 1000000 ? `$${(v/1000000).toFixed(2)}M` : `$${(v/1000).toFixed(0)}K`
+  const fmtVal = formatDollar
   const rows = m ? [
     { key: 'CAGR', a: `${m.Aggressive.cagr}%`, g: `${m.Growth.cagr}%`, c: `${m.Conservative.cagr}%`, b: `${m['S&P 500'].cagr}%`, d: 'Compound annual growth rate' },
     { key: 'Sharpe Ratio', a: (m.Aggressive.sharpe||0).toFixed(3), g: (m.Growth.sharpe||0).toFixed(3), c: (m.Conservative.sharpe||0).toFixed(3), b: (m['S&P 500'].sharpe||0).toFixed(3), d: 'Risk-adjusted return' },
@@ -637,11 +661,11 @@ function TradesTab({ liveData }) {
         <div className="grid grid-cols-4 gap-4 text-center">
           <div>
             <div className="text-xs text-slate-500 mb-1">Total Equity</div>
-            <div className="font-mono text-lg font-bold text-emerald-400">${(summary.totalValue || 0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+            <div className="font-mono text-lg font-bold text-emerald-400">{formatDollar(summary.totalValue || 0)}</div>
           </div>
           <div>
             <div className="text-xs text-slate-500 mb-1">Unrealized P&L</div>
-            <div className={`font-mono text-lg font-bold ${(summary.totalPnl||0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{(summary.totalPnl||0) >= 0 ? '+' : ''}${(summary.totalPnl||0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</div>
+            <div className={`font-mono text-lg font-bold ${(summary.totalPnl||0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{(summary.totalPnl||0) >= 0 ? '+' : ''}{formatDollar(summary.totalPnl||0)}</div>
           </div>
           <div>
             <div className="text-xs text-slate-500 mb-1">P&L %</div>
@@ -670,9 +694,9 @@ function TradesTab({ liveData }) {
                 <span className="text-xs text-slate-500">{positions.length} position{positions.length !== 1 ? 's' : ''}</span>
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><div className="text-xs text-slate-500">Equity</div><div className="font-mono font-bold" style={{color: colors.color}}>${(account.equity||0).toLocaleString(undefined, {maximumFractionDigits:0})}</div></div>
-                <div><div className="text-xs text-slate-500">Cash</div><div className="font-mono text-slate-300">${(account.cash||0).toLocaleString(undefined, {maximumFractionDigits:0})}</div></div>
-                <div><div className="text-xs text-slate-500">P&L</div><div className={`font-mono ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{pnl >= 0 ? '+' : ''}${pnl.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</div></div>
+                <div><div className="text-xs text-slate-500">Equity</div><div className="font-mono font-bold" style={{color: colors.color}}>{formatDollar(account.equity||0)}</div></div>
+                <div><div className="text-xs text-slate-500">Cash</div><div className="font-mono text-slate-300">{formatDollar(account.cash||0)}</div></div>
+                <div><div className="text-xs text-slate-500">P&L</div><div className={`font-mono ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{pnl >= 0 ? '+' : ''}{formatDollar(pnl)}</div></div>
                 <div><div className="text-xs text-slate-500">P&L %</div><div className={`font-mono ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{pnl >= 0 ? '+' : ''}{(data.total_pnl_pct||0).toFixed(2)}%</div></div>
               </div>
               {positions.length > 0 && (
@@ -810,7 +834,7 @@ export default function App() {
       <header className="border-b border-white/[0.06] bg-[#0a0e17]/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3"><div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-700 flex items-center justify-center"><TrendingUp size={16} className="text-white" /></div><div><div className="font-bold text-sm tracking-tight">AI Portfolio System</div><div className="text-[10px] text-slate-500">Duncan Shin — Quantitative Strategy</div></div></div>
-          <div className="flex items-center gap-4"><div className="text-right mr-2"><div className="text-xs text-slate-500">Duncan's Wealth Portfolio</div><div className="font-mono text-sm font-bold text-emerald-400">{liveData && liveData.summary ? "$" + (liveData.summary.totalValue||0).toLocaleString() : "..."}</div></div><StatusPill status={systemActive ? 'live' : 'paused'} text={systemActive ? 'System Active' : 'System Paused'} onClick={function() { setSystemActive(!systemActive) }} /></div>
+          <div className="flex items-center gap-4"><div className="text-right mr-2"><div className="text-xs text-slate-500">Duncan's Wealth Portfolio</div><div className="font-mono text-sm font-bold text-emerald-400">{liveData && liveData.summary ? formatDollar(liveData.summary.totalValue||0) : "..."}</div></div><StatusPill status={systemActive ? 'live' : 'paused'} text={systemActive ? 'System Active' : 'System Paused'} onClick={function() { setSystemActive(!systemActive) }} /></div>
         </div>
       </header>
       <nav className="border-b border-white/[0.06]"><div className="max-w-7xl mx-auto px-6 flex gap-1">{TABS.map(tab => { const Icon = tab.icon; const active = activeTab === tab.id; return <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-1.5 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${active ? 'border-emerald-500 text-white' : 'border-transparent text-slate-500 hover:text-slate-300'}`}><Icon size={14} />{tab.label}</button> })}</div></nav>

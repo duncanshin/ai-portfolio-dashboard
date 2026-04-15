@@ -71,57 +71,66 @@ export default async function handler(req, res) {
     }
   }
 
-  async function fetchBenchmark(creds, sinceDate) {
-  // Fetch actual S&P 500 index (^GSPC) from Yahoo Finance
-  // Use 5d range to get reliable previous trading day close from bar data
-  try {
-    var yahooRes = await fetch(
-      'https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?range=5d&interval=1d',
-      { headers: { 'User-Agent': 'Mozilla/5.0' } }
-    );
-    if (!yahooRes.ok) {
-      return { connected: false, error: 'Yahoo Finance request failed: ' + yahooRes.status };
+  // Compute S&P 500 benchmark tracked as if $100K was invested at `inceptionDate`.
+  // Uses SPY (via Yahoo) — not a separate Alpaca account. Pre-inception → notStarted state.
+  async function fetchBenchmark(inceptionDate) {
+    var INITIAL_CAPITAL = 100000;
+    try {
+      var inceptionTs = Math.floor(new Date(inceptionDate + 'T00:00:00Z').getTime() / 1000);
+      var nowTs = Math.floor(Date.now() / 1000);
+      // If inception date has not been reached yet → pre-open state
+      if (nowTs < inceptionTs) {
+        return { connected: true, notStarted: true, symbol: 'SPY', portfolioValue: INITIAL_CAPITAL, totalPnl: 0, totalPnlPct: 0, dailyPnl: 0, dailyPnlPct: 0, activePositions: 0, message: 'Starts at market open' };
+      }
+      var yahooRes = await fetch(
+        'https://query1.finance.yahoo.com/v8/finance/chart/SPY?period1=' + (inceptionTs - 7 * 86400) + '&period2=' + (nowTs + 86400) + '&interval=1d',
+        { headers: { 'User-Agent': 'Mozilla/5.0' } }
+      );
+      if (!yahooRes.ok) {
+        return { connected: false, error: 'Yahoo Finance request failed: ' + yahooRes.status };
+      }
+      var yahooData = await yahooRes.json();
+      var result = yahooData.chart.result[0];
+      var meta = result.meta;
+      var timestamps = result.timestamp || [];
+      var closes = result.indicators.quote[0].close || [];
+      var currentPrice = meta.regularMarketPrice;
+      var prevClose = meta.chartPreviousClose;
+
+      // Start price = first close on or after inception date. If none yet → notStarted.
+      var startPrice = null;
+      for (var i = 0; i < timestamps.length; i++) {
+        if (timestamps[i] >= inceptionTs && closes[i] != null) { startPrice = closes[i]; break; }
+      }
+      if (startPrice == null) {
+        return { connected: true, notStarted: true, symbol: 'SPY', portfolioValue: INITIAL_CAPITAL, totalPnl: 0, totalPnlPct: 0, dailyPnl: 0, dailyPnlPct: 0, activePositions: 0, message: 'Starts at market open' };
+      }
+
+      var portfolioValue = INITIAL_CAPITAL * (currentPrice / startPrice);
+      var totalPnl = portfolioValue - INITIAL_CAPITAL;
+      var totalPnlPct = ((currentPrice - startPrice) / startPrice) * 100;
+      var dailyPnlPct = (prevClose && prevClose > 0) ? ((currentPrice - prevClose) / prevClose) * 100 : 0;
+      var dailyPnl = (dailyPnlPct / 100) * (INITIAL_CAPITAL * (prevClose / startPrice));
+
+      return {
+        connected: true,
+        notStarted: false,
+        symbol: 'SPY',
+        price: currentPrice,
+        startPrice: startPrice,
+        prevClose: prevClose,
+        inceptionDate: inceptionDate,
+        portfolioValue: portfolioValue,
+        totalPnl: totalPnl,
+        totalPnlPct: totalPnlPct,
+        dailyPnl: dailyPnl,
+        dailyPnlPct: dailyPnlPct,
+        activePositions: 1,
+      };
+    } catch (err) {
+      return { connected: false, error: 'Benchmark fetch failed: ' + err.message };
     }
-    var yahooData = await yahooRes.json();
-    var meta = yahooData.chart.result[0].meta;
-    var currentPrice = meta.regularMarketPrice;
-
-    // Get actual daily closes from bar data — more reliable than meta.chartPreviousClose
-    var closes = yahooData.chart.result[0].indicators.quote[0].close;
-    // Filter out nulls and get the last valid closes
-    var validCloses = closes.filter(function(c) { return c !== null && c !== undefined; });
-    // Previous trading day close is second-to-last valid close
-    var prevClose = validCloses.length >= 2 ? validCloses[validCloses.length - 2] : null;
-
-    // If market is still open, last close is yesterday's — currentPrice is live
-    // If market is closed, last close IS today's final close
-    var todayChangePct = (currentPrice && prevClose && prevClose > 0)
-      ? ((currentPrice - prevClose) / prevClose) * 100
-      : null;
-
-    // $100K equivalent values
-    var initialCapital = 100000;
-    var portfolioValue = (todayChangePct !== null) ? initialCapital * (1 + todayChangePct / 100) : initialCapital;
-    var totalPnl = (todayChangePct !== null) ? portfolioValue - initialCapital : 0;
-    var dailyPnl = totalPnl;
-    var dailyPnlPct = todayChangePct || 0;
-
-    return {
-      connected: true,
-      symbol: '^GSPC',
-      price: currentPrice,
-      prevClose: prevClose,
-      todayChangePct: todayChangePct,
-      returnPct: todayChangePct,
-      portfolioValue: portfolioValue,
-      totalPnl: totalPnl,
-      dailyPnl: dailyPnl,
-      dailyPnlPct: dailyPnlPct,
-    };
-  } catch (err) {
-    return { connected: false, error: 'Benchmark fetch failed: ' + err.message };
   }
-}
 
   try {
     // Fetch all 3 profiles first
@@ -134,20 +143,26 @@ export default async function handler(req, res) {
     var growth = profileResults[1];
     var conservative = profileResults[2];
 
-    // Use Growth account creation date as benchmark start
-    var benchmarkStartDate = '2026-04-13'; // Inception date: all profiles started trading this date
+    // S&P 500 benchmark inception: same day the 3 paper accounts start trading.
+    // Pre-inception → fetchBenchmark returns notStarted=true ($100K / $0 / 0 positions).
+    var benchmarkStartDate = '2026-04-15';
 
-    var benchmark = await fetchBenchmark(profileCreds.growth, benchmarkStartDate);
+    var benchmark = await fetchBenchmark(benchmarkStartDate);
 
     var connected = profileResults.filter(function(p) { return p.connected; });
     var totalValue = connected.reduce(function(sum, p) { return sum + (p.portfolioValue || 0); }, 0);
     var totalPnl = connected.reduce(function(sum, p) { return sum + (p.todayReturn || 0); }, 0);
     var totalPositions = connected.reduce(function(sum, p) { return sum + (p.activePositions || 0); }, 0);
+    // Note: benchmark (S&P 500) is excluded from portfolio totals — it's a comparison, not a holding.
+    var baseCapital = connected.reduce(function(sum, p) { return sum + (parseFloat(p.lastEquity) || 100000); }, 0);
+    var totalPnlPct = baseCapital > 0 ? (totalPnl / baseCapital) * 100 : 0;
 
     return res.status(200).json({
       timestamp: new Date().toISOString(),
       summary: {
         totalValue: totalValue,
+        totalPnl: totalPnl,
+        totalPnlPct: totalPnlPct,
         totalTodayReturn: totalPnl,
         totalPositions: totalPositions,
         connectedProfiles: connected.length,
