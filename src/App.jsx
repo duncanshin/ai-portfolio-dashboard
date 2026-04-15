@@ -257,7 +257,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
   const [historyData, setHistoryData] = useState(null)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [isCustomRange, setIsCustomRange] = useState(false)
-  const [customStart, setCustomStart] = useState('2026-04-13')
+  const [customStart, setCustomStart] = useState('2026-04-15')
   const [customEnd, setCustomEnd] = useState(new Date().toISOString().split('T')[0])
 
   const HISTORY_PERIODS = [
@@ -275,7 +275,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
     { key: 'conservative', name: 'Conservative', color: '#3b82f6', textColor: 'text-blue-400', bgBadge: 'text-blue-400 bg-blue-400/10', icon: Shield },
   ]
 
-  const DEFAULT_START_DATE = '2026-04-13'
+  const DEFAULT_START_DATE = '2026-04-15'
   const chartData = historyData ? historyData.filter(function(d) {
     var startFilter = isCustomRange ? customStart : DEFAULT_START_DATE
     var endFilter = isCustomRange ? customEnd : '9999-12-31'
@@ -309,7 +309,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
         addPoints(bench, 'spy', 'spy')
         var merged = Object.values(dateMap).sort(function(a, b) { return a.date.localeCompare(b.date) })
         // Remove data before trading start date
-        merged = merged.filter(function(d) { return d.date >= '2026-04-13' })
+        merged = merged.filter(function(d) { return d.date >= '2026-04-15' })
         // Re-normalize SPY so it starts at $100K on the first date with profile data
         var firstWithProfile = merged.find(function(d) { return d.aggressive || d.growth || d.conservative })
         if (firstWithProfile && firstWithProfile.spy && firstWithProfile.spy > 0) {
@@ -406,7 +406,8 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
       <div>
         <h2 className="text-lg font-semibold">Paper Trading Performance</h2><p className="text-sm text-slate-500 mb-3">Live equity curves from Alpaca paper trading accounts</p>
         <Card>
-          <div className="flex items-center justify-between mb-3">
+          {/* Header row: title · date inputs · inline legend · period buttons */}
+          <div className="flex items-center flex-wrap gap-3 mb-3">
             <div className="flex items-center gap-2.5">
               <h3 className="font-semibold text-sm">Equity Curves</h3>
               <div className="flex items-center gap-1.5">
@@ -417,34 +418,69 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
                   className="bg-[#161b2b] border border-white/[0.06] rounded-md px-1.5 py-0.5 text-[11px] text-slate-400 font-mono focus:outline-none focus:border-emerald-500/40" />
               </div>
             </div>
-            <div className="flex items-center gap-0.5">
-              {HISTORY_PERIODS.map(function(p) { return (
-                <button key={p.value} onClick={function() { setIsCustomRange(false); setHistoryPeriod(p.value); setCustomStart('2026-04-13'); setCustomEnd(new Date().toISOString().split('T')[0]) }}
-                  className={'px-2 py-0.5 rounded text-[10px] font-medium transition-all ' + (!isCustomRange && historyPeriod === p.value ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300')}>{p.label}</button>
-              )})}
+            <div className="flex items-center gap-3 ml-auto">
+              <div className="flex items-center gap-3 px-2.5 py-1 rounded-md border border-white/[0.05] bg-[#0c1019]">
+                {[
+                  { label: 'Aggressive', color: '#f97316' },
+                  { label: 'Growth', color: '#10b981' },
+                  { label: 'Conservative', color: '#3b82f6' },
+                  { label: 'S&P 500', color: '#94a3b8', dashed: true },
+                ].map(function(item) { return (
+                  <div key={item.label} className="flex items-center gap-1.5">
+                    <svg width="14" height="3"><line x1="0" y1="1.5" x2="14" y2="1.5" stroke={item.color} strokeWidth="2" strokeDasharray={item.dashed ? '4 2' : 'none'} /></svg>
+                    <span className="text-[10px] text-slate-400">{item.label}</span>
+                  </div>
+                )})}
+              </div>
+              <div className="flex items-center gap-0.5">
+                {HISTORY_PERIODS.map(function(p) { return (
+                  <button key={p.value} onClick={function() { setIsCustomRange(false); setHistoryPeriod(p.value); setCustomStart('2026-04-15'); setCustomEnd(new Date().toISOString().split('T')[0]) }}
+                    className={'px-2 py-0.5 rounded text-[10px] font-medium transition-all ' + (!isCustomRange && historyPeriod === p.value ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300')}>{p.label}</button>
+                )})}
+              </div>
             </div>
           </div>
           {historyLoading ? (
             <div className="h-64 flex items-center justify-center text-slate-500">Loading...</div>
-          ) : chartData && chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={chartData}>
-                <defs>
-                  <linearGradient id="grad-agg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f97316" stopOpacity={0.15} /><stop offset="100%" stopColor="#f97316" stopOpacity={0} /></linearGradient>
-                  <linearGradient id="grad-gro" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity={0.15} /><stop offset="100%" stopColor="#10b981" stopOpacity={0} /></linearGradient>
-                  <linearGradient id="grad-con" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3b82f6" stopOpacity={0.15} /><stop offset="100%" stopColor="#3b82f6" stopOpacity={0} /></linearGradient>
-                </defs>
-                <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" />
-                <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={function(v) { var parts = v.split('-'); return parseInt(parts[1]) + '/' + parseInt(parts[2]) }} />
-                <YAxis type="number" tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={function(v) { return v < 0 ? '$0' : formatDollar(v) }} domain={[0, function(dataMax) { return Math.ceil(dataMax / 1000) * 1000 }]} allowDataOverflow={true} />
-                <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }} formatter={function(v) { return [formatDollar(v)] }} />
-                <Area type="monotone" dataKey="aggressive" stroke="#f97316" strokeWidth={2} fill="url(#grad-agg)" dot={false} name="Aggressive" />
-                <Area type="monotone" dataKey="growth" stroke="#10b981" strokeWidth={2} fill="url(#grad-gro)" dot={false} name="Growth" />
-                <Area type="monotone" dataKey="conservative" stroke="#3b82f6" strokeWidth={2} fill="url(#grad-con)" dot={false} name="Conservative" />
-                <Area type="monotone" dataKey="spy" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 3" fill="none" dot={false} name="S&P 500" />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
+          ) : chartData && chartData.length > 0 ? (function() {
+            // Auto-scale Y-axis tightly around the data so sub-percent moves on day 1 are visible.
+            var allVals = [];
+            chartData.forEach(function(d) { ['aggressive','growth','conservative','spy'].forEach(function(k) { if (d[k] != null && d[k] > 0) allVals.push(d[k]) }) });
+            var yMin = 100000, yMax = 100000;
+            if (allVals.length) { yMin = Math.min.apply(null, allVals); yMax = Math.max.apply(null, allVals); }
+            var range = Math.max(yMax - yMin, yMax * 0.01); // min 1% spread so flat day 1 still renders a band
+            var pad = range * 0.2;
+            var yDomain = [Math.floor((yMin - pad) / 100) * 100, Math.ceil((yMax + pad) / 100) * 100];
+            // X-axis tick interval: for short series show every point, otherwise thin to ~10 labels.
+            var tickInterval = chartData.length <= 7 ? 0 : Math.max(1, Math.floor(chartData.length / 10));
+            var xFmt = function(v) {
+              var parts = v.split('-');
+              return chartData.length <= 31
+                ? parseInt(parts[1]) + '/' + parseInt(parts[2])
+                : parts[0].slice(2) + '-' + parts[1];
+            };
+            // Day-1 single point → need dots so something renders. Otherwise lines only.
+            var showDots = chartData.length <= 5;
+            return (
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 8, bottom: 4 }}>
+                  <defs>
+                    <linearGradient id="grad-agg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#f97316" stopOpacity={0.15} /><stop offset="100%" stopColor="#f97316" stopOpacity={0} /></linearGradient>
+                    <linearGradient id="grad-gro" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#10b981" stopOpacity={0.15} /><stop offset="100%" stopColor="#10b981" stopOpacity={0} /></linearGradient>
+                    <linearGradient id="grad-con" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3b82f6" stopOpacity={0.15} /><stop offset="100%" stopColor="#3b82f6" stopOpacity={0} /></linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" />
+                  <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} interval={tickInterval} tickFormatter={xFmt} />
+                  <YAxis type="number" domain={yDomain} tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={function(v) { return formatDollar(v) }} allowDataOverflow={false} />
+                  <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }} formatter={function(v) { return [formatDollar(v)] }} />
+                  <Area type="monotone" dataKey="aggressive"   stroke="#f97316" strokeWidth={2} fill="url(#grad-agg)" dot={showDots ? { r: 3, fill: '#f97316' } : false} name="Aggressive" connectNulls />
+                  <Area type="monotone" dataKey="growth"       stroke="#10b981" strokeWidth={2} fill="url(#grad-gro)" dot={showDots ? { r: 3, fill: '#10b981' } : false} name="Growth" connectNulls />
+                  <Area type="monotone" dataKey="conservative" stroke="#3b82f6" strokeWidth={2} fill="url(#grad-con)" dot={showDots ? { r: 3, fill: '#3b82f6' } : false} name="Conservative" connectNulls />
+                  <Area type="monotone" dataKey="spy"          stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 3" fill="none" dot={showDots ? { r: 3, fill: '#94a3b8' } : false} name="S&P 500" connectNulls />
+                </AreaChart>
+              </ResponsiveContainer>
+            );
+          })() : (
             <div className="h-[300px] rounded-lg bg-slate-800/50 flex items-center justify-center">
               <div className="flex flex-col items-center text-center">
                 <div className="w-12 h-12 rounded-full bg-slate-700/50 flex items-center justify-center mb-3"><Clock size={20} className="text-slate-400" /></div>
@@ -453,19 +489,6 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
               </div>
             </div>
           )}
-          <div className="flex items-center justify-center gap-5 mt-3 py-2 px-5 rounded-lg border border-white/[0.05] bg-[#0c1019]">
-            {[
-              { label: 'Aggressive', color: '#f97316' },
-              { label: 'Growth', color: '#10b981' },
-              { label: 'Conservative', color: '#3b82f6' },
-              { label: 'S&P 500', color: '#94a3b8', dashed: true },
-            ].map(function(item) { return (
-              <div key={item.label} className="flex items-center gap-1.5">
-                <svg width="16" height="3"><line x1="0" y1="1.5" x2="16" y2="1.5" stroke={item.color} strokeWidth="2" strokeDasharray={item.dashed ? '5 3' : 'none'} /></svg>
-                <span className="text-[10px] text-slate-500">{item.label}</span>
-              </div>
-            )})}
-          </div>
         </Card>
       </div>
     </div>
