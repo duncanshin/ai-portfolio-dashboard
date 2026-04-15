@@ -254,7 +254,20 @@ function EquityCurveChart({ data, startIdx, endIdx, height = 340, crisisShade })
         <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" />
         <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} interval={Math.max(1, Math.floor(slicedData.length / 10))} tickFormatter={v => v.split('-')[0]} />
         <YAxis scale="log" domain={[minVal, 'auto']} tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={v => formatDollar(v)} allowDataOverflow={true} />
-        <Tooltip contentStyle={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 12 }} formatter={v => [formatDollar(v)]} labelFormatter={l => dateToLabel(l)} />
+        <Tooltip content={props => {
+          if (!props.active || !props.payload || !props.payload.length) return null
+          const sorted = props.payload.slice().filter(p => p.value != null).sort((a, b) => (b.value || 0) - (a.value || 0))
+          return (
+            <div style={{ background: '#1a1f2e', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8, fontSize: 12, padding: '8px 12px' }}>
+              <div style={{ color: '#94a3b8', marginBottom: 4 }}>{dateToLabel(props.label)}</div>
+              {sorted.map(p => (
+                <div key={p.dataKey} style={{ color: p.color, display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+                  <span>{p.name}</span><span style={{ fontFamily: 'monospace' }}>{formatDollar(p.value)}</span>
+                </div>
+              ))}
+            </div>
+          )
+        }} />
         {crisisShade && <ReferenceArea x1={crisisShade[0]} x2={crisisShade[1]} fill="#ef4444" fillOpacity={0.08} stroke="#ef4444" strokeOpacity={0.2} strokeDasharray="3 3" label={{ value: 'Crisis Period', position: 'insideTop', fill: '#ef4444', fontSize: 10, opacity: 0.6 }} />}
         <Area type="monotone" dataKey="Aggressive" stroke="#f97316" strokeWidth={2} fill="url(#grad-aggressive)" dot={false} />
         <Area type="monotone" dataKey="Growth" stroke="#10b981" strokeWidth={2} fill="url(#grad-growth)" dot={false} />
@@ -454,16 +467,16 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
               </div>
             </div>
             <div className="flex-1 flex justify-center">
-              <div className="flex items-center gap-3 px-2.5 py-1 rounded-md border border-white/[0.05] bg-[#0c1019]">
+              <div className="flex items-center gap-5 px-3 py-1.5 rounded-md border border-white/[0.05] bg-[#0c1019]">
                 {[
                   { label: 'Aggressive', color: '#f97316' },
                   { label: 'Growth', color: '#10b981' },
                   { label: 'Conservative', color: '#3b82f6' },
                   { label: 'S&P 500', color: '#94a3b8', dashed: true },
                 ].map(function(item) { return (
-                  <div key={item.label} className="flex items-center gap-1.5">
-                    <svg width="14" height="3"><line x1="0" y1="1.5" x2="14" y2="1.5" stroke={item.color} strokeWidth="2" strokeDasharray={item.dashed ? '4 2' : 'none'} /></svg>
-                    <span className="text-[10px] text-slate-400 whitespace-nowrap">{item.label}</span>
+                  <div key={item.label} className="flex items-center gap-2">
+                    <svg width="20" height="4"><line x1="0" y1="2" x2="20" y2="2" stroke={item.color} strokeWidth="3" strokeDasharray={item.dashed ? '5 3' : 'none'} /></svg>
+                    <span className="text-[12px] text-slate-400 whitespace-nowrap">{item.label}</span>
                   </div>
                 )})}
               </div>
@@ -508,7 +521,20 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
                   <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" />
                   <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} interval={tickInterval} tickFormatter={xFmt} padding={{ left: 0, right: 0 }} />
                   <YAxis type="number" domain={yDomain} tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={function(v) { return formatDollar(v) }} allowDataOverflow={false} />
-                  <Tooltip contentStyle={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12 }} formatter={function(v) { return [formatDollar(v)] }} />
+                  <Tooltip content={function(props) {
+                    if (!props.active || !props.payload || !props.payload.length) return null;
+                    var sorted = props.payload.slice().filter(function(p) { return p.value != null }).sort(function(a, b) { return (b.value || 0) - (a.value || 0) });
+                    return (
+                      <div style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, fontSize: 12, padding: '8px 12px' }}>
+                        <div style={{ color: '#94a3b8', marginBottom: 4 }}>{props.label}</div>
+                        {sorted.map(function(p) { return (
+                          <div key={p.dataKey} style={{ color: p.color, display: 'flex', justifyContent: 'space-between', gap: 16 }}>
+                            <span>{p.name}</span><span style={{ fontFamily: 'monospace' }}>{formatDollar(p.value)}</span>
+                          </div>
+                        )})}
+                      </div>
+                    );
+                  }} />
                   <Area type="monotone" dataKey="aggressive"   stroke="#f97316" strokeWidth={2} fill="url(#grad-agg)" dot={showDots ? { r: 3, fill: '#f97316' } : false} name="Aggressive" connectNulls />
                   <Area type="monotone" dataKey="growth"       stroke="#10b981" strokeWidth={2} fill="url(#grad-gro)" dot={showDots ? { r: 3, fill: '#10b981' } : false} name="Growth" connectNulls />
                   <Area type="monotone" dataKey="conservative" stroke="#3b82f6" strokeWidth={2} fill="url(#grad-con)" dot={showDots ? { r: 3, fill: '#3b82f6' } : false} name="Conservative" connectNulls />
@@ -638,16 +664,16 @@ function BacktestTab({ metrics, inflationAdj, setInflationAdj, curveData, startI
         <div className="mb-3"><h3 className="font-semibold text-sm mb-2">Select Time Period</h3></div>
         <div className="flex items-center justify-between mb-3">
           <div className="flex-1"><DateRangeSelector startIdx={startIdx} endIdx={endIdx} setStartIdx={setStartIdx} setEndIdx={setEndIdx} dates={dates} onCrisisShade={setCrisisShade} /></div>
-          <div className="flex items-center gap-3 px-3 py-1.5 rounded-lg border border-white/[0.06] bg-[#0c1019] ml-3 shrink-0">
+          <div className="flex items-center gap-5 px-3.5 py-2 rounded-lg border border-white/[0.06] bg-[#0c1019] ml-3 shrink-0">
             {[
               { label: 'Aggressive', color: '#f97316' },
               { label: 'Growth', color: '#10b981' },
               { label: 'Conservative', color: '#3b82f6' },
               { label: 'S&P 500', color: '#94a3b8', dashed: true },
             ].map(item => (
-              <div key={item.label} className="flex items-center gap-1.5">
-                <svg width="16" height="3"><line x1="0" y1="1.5" x2="16" y2="1.5" stroke={item.color} strokeWidth="2" strokeDasharray={item.dashed ? '5 3' : 'none'} /></svg>
-                <span className="text-[10px] text-slate-400">{item.label}</span>
+              <div key={item.label} className="flex items-center gap-2">
+                <svg width="20" height="4"><line x1="0" y1="2" x2="20" y2="2" stroke={item.color} strokeWidth="3" strokeDasharray={item.dashed ? '5 3' : 'none'} /></svg>
+                <span className="text-[12px] text-slate-400">{item.label}</span>
               </div>
             ))}
           </div>
