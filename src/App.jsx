@@ -20,8 +20,8 @@ const INITIAL_CAPITAL = 100000
 
 const BASE_PROFILES = {
   aggressive: { name: 'Aggressive', color: '#f97316', bg: 'rgba(249,115,22,0.08)', border: 'rgba(249,115,22,0.25)', winRate: 60.3, positions: 10, rebalance: '7d', trailingStop: '10%', strategy: 'Pure momentum', icon: Zap },
-  growth: { name: 'Growth', label: "Duncan's Profile", color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)', winRate: 67.5, positions: 8, rebalance: '14d', trailingStop: '9%', strategy: 'Momentum + Quality', icon: TrendingUp },
-  conservative: { name: 'Conservative', color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.25)', winRate: 71.0, positions: 12, rebalance: '14d', trailingStop: '7%', strategy: 'Momentum + Quality', icon: Shield },
+  growth: { name: 'Growth', label: "Duncan's Profile", color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)', winRate: 67.5, positions: 8, rebalance: '14d', trailingStop: '11%', strategy: 'Momentum + Quality', icon: TrendingUp },
+  conservative: { name: 'Conservative', color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.25)', winRate: 71.0, positions: 12, rebalance: '14d', trailingStop: '11%', strategy: 'Momentum + Quality', icon: Shield },
   benchmark: { name: 'S&P 500', color: '#cbd5e1', winRate: null }
 }
 
@@ -568,7 +568,7 @@ function BacktestTab({ metrics, inflationAdj, setInflationAdj, curveData, startI
     { key: 'End Value', a: fmtVal(m.Aggressive.endVal), g: fmtVal(m.Growth.endVal), c: fmtVal(m.Conservative.endVal), b: fmtVal(m['S&P 500'].endVal), d: "Final Value (Today's Dollars)" },
     { key: 'Positions', a: '10', g: '8', c: '12', b: '500', d: 'Concurrent holdings' },
     { key: 'Rebalance', a: 'Weekly', g: 'Bi-weekly', c: 'Bi-weekly', b: '—', d: 'Rotation frequency' },
-    { key: 'Trailing Stop', a: '10%', g: '9%', c: '7%', b: '—', d: 'Downside protection' },
+    { key: 'Trailing Stop', a: '10%', g: '11%', c: '11%', b: '—', d: 'Downside protection' },
   ] : []
   return (
     <div className="space-y-6">
@@ -649,7 +649,7 @@ function ProfilesTab({ metrics, inflationAdj }) {
   const params = [
     { l: 'Strategy', a: 'Pure momentum', g: 'Momentum + Quality', c: 'Momentum + Quality' },
     { l: 'Positions', a: '10', g: '8', c: '12' },{ l: 'Max Position Size', a: '15%', g: '10%', c: '6%' },
-    { l: 'Trailing Stop', a: '10%', g: '9%', c: '7%' },{ l: 'Weekly DD → 50% Cash', a: '6%', g: '4%', c: '4%' },
+    { l: 'Trailing Stop', a: '10%', g: '11%', c: '11%' },{ l: 'Weekly DD → 50% Cash', a: '6%', g: '4%', c: '4%' },
     { l: 'Critical DD → 100% Cash', a: '12%', g: '7%', c: '7%' },{ l: 'Max Sector', a: '40%', g: '40%', c: '40%' },
     { l: 'VIX Caution (30+)', a: 'Max 3 pos', g: 'Max 2 pos', c: 'Max 5 pos' },
     { l: 'VIX Danger (40+)', a: 'Max 2 pos', g: 'Max 1 pos', c: '100% defensive' },
