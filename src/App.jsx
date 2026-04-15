@@ -200,12 +200,23 @@ function DateRangeSelector({ startIdx, endIdx, setStartIdx, setEndIdx, dates, on
   const total = dates.length
   // Anchor named regimes by date so they survive any future re-extension of the dataset.
   const findIdx = (label) => Math.max(0, dates.indexOf(label))
+  // Relative-period start: N years before TODAY's month, then snap to the first
+  // available data month at or after that target. End is always the latest data point.
+  const yearsAgoIdx = (years) => {
+    const now = new Date()
+    const targetYear = now.getFullYear() - years
+    const targetMonth = String(now.getMonth() + 1).padStart(2, '0')
+    const target = targetYear + '-' + targetMonth
+    let idx = dates.findIndex(d => d >= target)
+    if (idx < 0) idx = 0
+    return idx
+  }
   const ranges = [
     { label: 'All', s: 0, e: total - 1 },
-    { label: '10Y', s: total - 120, e: total - 1 },
-    { label: '5Y', s: total - 60, e: total - 1 },
-    { label: '3Y', s: total - 36, e: total - 1 },
-    { label: '1Y', s: total - 12, e: total - 1 },
+    { label: '10Y', s: yearsAgoIdx(10), e: total - 1 },
+    { label: '5Y', s: yearsAgoIdx(5), e: total - 1 },
+    { label: '3Y', s: yearsAgoIdx(3), e: total - 1 },
+    { label: '1Y', s: yearsAgoIdx(1), e: total - 1 },
     { label: 'Dot-Com Crash', s: findIdx('2000-02'), e: findIdx('2007-06'), shade: ['2000-03', '2002-10'] },
     { label: 'Lost Decade', s: findIdx('2000-01'), e: findIdx('2009-12') },
     { label: '2008 Crisis', s: findIdx('2007-09'), e: findIdx('2013-04'), shade: ['2007-10', '2009-03'] },
