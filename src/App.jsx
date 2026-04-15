@@ -40,22 +40,22 @@ const dateToLabel = (d) => { const [y, m] = d.split('-'); const months = ['Jan',
 // This way changing the start date always shows growth from $100K,
 // not from whatever the accumulated value was at that point.
 // ═══════════════════════════════════════════════════════════════
-function normalizeCurveFromStart(data, startIdx) {
+function normalizeCurveFromStart(data, startIdx, capital = INITIAL_CAPITAL) {
   const keys = ['Aggressive', 'Growth', 'Conservative', 'S&P 500']
   const startVals = {}
   keys.forEach(k => { startVals[k] = data[startIdx][k] })
   return data.map(d => {
     const normalized = { ...d }
     keys.forEach(k => {
-      normalized[k] = Math.round((d[k] / startVals[k]) * INITIAL_CAPITAL)
+      normalized[k] = Math.round((d[k] / startVals[k]) * capital)
     })
     return normalized
   })
 }
 
-function calcMetrics(curveData, startIdx, endIdx, jsonMetrics, jsonTrades, dates) {
+function calcMetrics(curveData, startIdx, endIdx, jsonMetrics, jsonTrades, dates, capital = INITIAL_CAPITAL) {
   if (startIdx >= endIdx || !curveData || curveData.length === 0) return null
-  const normalized = normalizeCurveFromStart(curveData, startIdx)
+  const normalized = normalizeCurveFromStart(curveData, startIdx, capital)
   const slice = normalized.slice(startIdx, endIdx + 1)
   const years = (endIdx - startIdx) / 12
   const results = {}
@@ -138,8 +138,8 @@ function calcMetrics(curveData, startIdx, endIdx, jsonMetrics, jsonTrades, dates
   return results
 }
 
-function getAdjustedCurve(data, startIdx, inflationAdj) {
-  const normalized = normalizeCurveFromStart(data, startIdx)
+function getAdjustedCurve(data, startIdx, inflationAdj, capital = INITIAL_CAPITAL) {
+  const normalized = normalizeCurveFromStart(data, startIdx, capital)
   if (!inflationAdj) return normalized
   return normalized.map((d, i) => {
     const monthsFromStart = i - startIdx
@@ -448,7 +448,51 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
   )
 }
 
-function BacktestTab({ metrics, inflationAdj, setInflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates }) {
+function CapitalSlider({ capital, setCapital, metrics }) {
+  const presets = [2000, 10000, 100000, 1000000]
+  const fmt = (v) => v >= 1000000 ? `$${(v/1000000).toFixed(v % 1000000 === 0 ? 0 : 2)}M` : v >= 1000 ? `$${(v/1000).toFixed(0)}K` : `$${v}`
+  const endVals = metrics ? [
+    { k: 'Aggressive', color: '#f97316', v: metrics.Aggressive?.endVal },
+    { k: 'Growth', color: '#10b981', v: metrics.Growth?.endVal },
+    { k: 'Conservative', color: '#3b82f6', v: metrics.Conservative?.endVal },
+    { k: 'S&P 500', color: '#94a3b8', v: metrics['S&P 500']?.endVal },
+  ] : []
+  return (
+    <div className="mb-3 rounded-lg border border-white/[0.05] bg-[#0c1019] p-3">
+      <div className="flex items-center justify-between mb-2 gap-4">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-slate-500 uppercase">Starting Capital</span>
+          <span className="font-mono text-sm font-bold text-emerald-400">{fmt(capital)}</span>
+        </div>
+        <div className="flex items-center gap-1">
+          {presets.map(p => (
+            <button key={p} onClick={() => setCapital(p)}
+              className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${capital === p ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-white/[0.03] text-slate-500 border border-white/[0.05] hover:text-slate-300'}`}>
+              {fmt(p)}
+            </button>
+          ))}
+        </div>
+      </div>
+      <input type="range" min={1000} max={10000000} step={1000} value={capital}
+        onChange={e => setCapital(Number(e.target.value))}
+        className="w-full accent-emerald-500" />
+      {metrics && (
+        <div className="grid grid-cols-4 gap-3 mt-3 pt-2 border-t border-white/[0.04]">
+          {endVals.map(ev => (
+            <div key={ev.k}>
+              <div className="text-[10px] text-slate-500 uppercase">{ev.k} End Value</div>
+              <div className="font-mono text-sm font-semibold" style={{ color: ev.color }}>
+                {ev.v != null ? (ev.v >= 1000000 ? `$${(ev.v/1000000).toFixed(2)}M` : `$${(ev.v/1000).toFixed(0)}K`) : '—'}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function BacktestTab({ metrics, inflationAdj, setInflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates, capital, setCapital }) {
   const [crisisShade, setCrisisShade] = useState(null)
   const m = metrics; const years = ((endIdx - startIdx) / 12).toFixed(1)
   const fmtVal = (v) => v >= 1000000 ? `$${(v/1000000).toFixed(2)}M` : `$${(v/1000).toFixed(0)}K`
@@ -507,6 +551,7 @@ function BacktestTab({ metrics, inflationAdj, setInflationAdj, curveData, startI
         </Card>
       </div>
       <Card>
+        <CapitalSlider capital={capital} setCapital={setCapital} metrics={metrics} />
         <div className="mb-3"><h3 className="font-semibold text-sm mb-2">Select Time Period</h3></div>
         <div className="flex items-center justify-between mb-3">
           <div className="flex-1"><DateRangeSelector startIdx={startIdx} endIdx={endIdx} setStartIdx={setStartIdx} setEndIdx={setEndIdx} dates={dates} onCrisisShade={setCrisisShade} /></div>
@@ -585,7 +630,7 @@ function TradesTab({ liveData }) {
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-semibold">Live Paper Trading</h2>
-        <p className="text-sm text-slate-500">Positions from Alpaca paper accounts \u00b7 Updated {updatedAt}</p>
+        <p className="text-sm text-slate-500">Positions from Alpaca paper accounts · Updated {updatedAt}</p>
       </div>
 
       <Card>
@@ -732,6 +777,7 @@ export default function App() {
   const [jsonMetrics, setJsonMetrics] = useState(null)
   const [jsonTrades, setJsonTrades] = useState(null)
   const [liveData, setLiveData] = useState(null)
+  const [capital, setCapital] = useState(INITIAL_CAPITAL)
 
   useEffect(() => {
     fetch('/backtest_output.json')
@@ -754,10 +800,10 @@ export default function App() {
   }, [])
 
   const dates = useMemo(() => fullMergedCurve ? fullMergedCurve.map(d => d.date) : [], [fullMergedCurve])
-  const curveData = useMemo(() => fullMergedCurve ? getAdjustedCurve(fullMergedCurve, startIdx, inflationAdj) : null, [fullMergedCurve, inflationAdj, startIdx])
-  const metrics = useMemo(() => fullMergedCurve ? calcMetrics(fullMergedCurve, startIdx, endIdx, jsonMetrics, jsonTrades, dates) : null, [fullMergedCurve, startIdx, endIdx, jsonMetrics, jsonTrades, dates])
-  const inflMetrics = useMemo(() => (inflationAdj && curveData) ? calcMetrics(curveData, startIdx, endIdx, null, jsonTrades, dates) : metrics, [curveData, inflationAdj, startIdx, endIdx, metrics, jsonTrades, dates])
-  const tabProps = { metrics: inflMetrics, inflationAdj, setInflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates }
+  const curveData = useMemo(() => fullMergedCurve ? getAdjustedCurve(fullMergedCurve, startIdx, inflationAdj, capital) : null, [fullMergedCurve, inflationAdj, startIdx, capital])
+  const metrics = useMemo(() => fullMergedCurve ? calcMetrics(fullMergedCurve, startIdx, endIdx, jsonMetrics, jsonTrades, dates, capital) : null, [fullMergedCurve, startIdx, endIdx, jsonMetrics, jsonTrades, dates, capital])
+  const inflMetrics = useMemo(() => (inflationAdj && curveData) ? calcMetrics(curveData, startIdx, endIdx, null, jsonTrades, dates, capital) : metrics, [curveData, inflationAdj, startIdx, endIdx, metrics, jsonTrades, dates, capital])
+  const tabProps = { metrics: inflMetrics, inflationAdj, setInflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates, capital, setCapital }
   const TabContent = { overview: () => <OverviewTab {...tabProps} liveData={liveData} />, backtest: () => <BacktestTab {...tabProps} />, profiles: () => <ProfilesTab metrics={inflMetrics} inflationAdj={inflationAdj} />, trades: () => <TradesTab liveData={liveData} />, evolution: () => <EvolutionTab /> }
   return (
     <div className="min-h-screen bg-[#0a0e17]">
