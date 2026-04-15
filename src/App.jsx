@@ -400,6 +400,13 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
         <div className="flex justify-between items-center py-1">
           <div><div className="text-[10px] text-slate-500 uppercase mb-1">Total Portfolio Value</div><div className="font-mono text-lg font-bold text-emerald-400">{formatDollar(summary ? (summary.totalValue || 0) : 300000)}</div></div>
           <div><div className="text-[10px] text-slate-500 uppercase mb-1">Unrealized P&L</div><div className={'font-mono text-sm font-semibold ' + (summary && (summary.totalPnl||0) >= 0 ? 'text-emerald-400' : 'text-red-400')}>{summary ? ((summary.totalPnl||0) >= 0 ? '+' : '') + formatDollar(summary.totalPnl||0) : '+$0'}</div></div>
+          {(function() {
+            var totalPnlForPct = summary ? (summary.totalPnl || 0) : 0
+            var pnlPct = (totalPnlForPct / 300000) * 100
+            return (
+              <div><div className="text-[10px] text-slate-500 uppercase mb-1">P&L %</div><div className={'font-mono text-sm font-semibold ' + (pnlPct >= 0 ? 'text-emerald-400' : 'text-red-400')}>{(pnlPct >= 0 ? '+' : '') + pnlPct.toFixed(2) + '%'}</div></div>
+            )
+          })()}
           <div><div className="text-[10px] text-slate-500 uppercase mb-1">Total Positions</div><div className="font-mono text-sm font-semibold">{totalPositions}</div></div>
           <div><div className="text-[10px] text-slate-500 uppercase mb-1">Accounts</div><div className="font-mono text-sm font-semibold">{connectedProfiles}/3</div></div>
         </div>
@@ -444,7 +451,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
                 <div><div className="text-[10px] text-slate-500 uppercase mb-1">Portfolio Value</div><div className="font-mono text-sm font-semibold text-slate-300">{formatDollar(value)}</div></div>
                 <div><div className="text-[10px] text-slate-500 uppercase mb-1">Unrealized P&L</div><div className={"font-mono text-sm font-semibold " + (preOpen ? "text-slate-500" : (pnl >= 0 ? "text-emerald-400" : "text-red-400"))}>{(pnl >= 0 ? "+" : "") + formatDollar(pnl)}</div></div>
                 <div><div className="text-[10px] text-slate-500 uppercase mb-1">P&L %</div><div className={"font-mono text-sm font-semibold " + (preOpen ? "text-slate-500" : (pnlPct >= 0 ? "text-emerald-400" : "text-red-400"))}>{(pnlPct >= 0 ? "+" : "") + pnlPct.toFixed(2) + "%"}</div></div>
-                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Positions</div><div className="font-mono text-sm font-semibold text-slate-300">{positions}</div></div>
+                <div><div className="text-[10px] text-slate-500 uppercase mb-1">Benchmark</div><div className="font-mono text-sm font-semibold text-slate-300">SPY</div></div>
               </div>
             </Card>
           )
