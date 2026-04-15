@@ -320,21 +320,24 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
         addPoints(gro, 'growth', 'equity')
         addPoints(con, 'conservative', 'equity')
         addPoints(bench, 'spy', 'spy')
-        var merged = Object.values(dateMap).sort(function(a, b) { return a.date.localeCompare(b.date) })
-        // Remove data before trading start date
-        merged = merged.filter(function(d) { return d.date >= '2026-04-15' })
-        // Re-normalize SPY so it starts at $100K on the first date with profile data
-        var firstWithProfile = merged.find(function(d) { return d.aggressive || d.growth || d.conservative })
-        if (firstWithProfile && firstWithProfile.spy && firstWithProfile.spy > 0) {
-          var spyBase = firstWithProfile.spy
-          merged.forEach(function(d) { if (d.spy) d.spy = Math.round((d.spy / spyBase) * 100000) })
-        }
-        // Extend to today if data ends before the current date
+        // Pad series with every trading day from start → end so X-axis spans the full
+        // requested range even when only 1 data point exists. Today's point anchors left.
         var today = new Date().toISOString().split('T')[0]
-        if (merged.length > 0 && merged[merged.length - 1].date < today) {
-          var last = merged[merged.length - 1]
-          merged.push({ date: today, aggressive: last.aggressive, growth: last.growth, conservative: last.conservative, spy: last.spy })
+        var rangeStart = isCustomRange ? customStart : '2026-04-15'
+        var rangeEnd = isCustomRange ? customEnd : today
+        if (rangeStart < '2026-04-15') rangeStart = '2026-04-15'
+        var cursor = new Date(rangeStart + 'T00:00:00Z')
+        var endD = new Date(rangeEnd + 'T00:00:00Z')
+        while (cursor <= endD) {
+          var dow = cursor.getUTCDay()
+          if (dow !== 0 && dow !== 6) {
+            var ds = cursor.toISOString().split('T')[0]
+            if (!dateMap[ds]) dateMap[ds] = { date: ds }
+          }
+          cursor.setUTCDate(cursor.getUTCDate() + 1)
         }
+        var merged = Object.values(dateMap).sort(function(a, b) { return a.date.localeCompare(b.date) })
+        merged = merged.filter(function(d) { return d.date >= '2026-04-15' && d.date <= rangeEnd })
         setHistoryData(merged)
         setHistoryLoading(false)
       })
@@ -431,26 +434,26 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
                   className="bg-[#161b2b] border border-white/[0.06] rounded-md px-1.5 py-0.5 text-[11px] text-slate-400 font-mono focus:outline-none focus:border-emerald-500/40" />
               </div>
             </div>
-            <div className="flex items-center gap-3 ml-auto">
-              <div className="flex items-center gap-3 px-2.5 py-1 rounded-md border border-white/[0.05] bg-[#0c1019]">
-                {[
-                  { label: 'Aggressive', color: '#f97316' },
-                  { label: 'Growth', color: '#10b981' },
-                  { label: 'Conservative', color: '#3b82f6' },
-                  { label: 'S&P 500', color: '#94a3b8', dashed: true },
-                ].map(function(item) { return (
-                  <div key={item.label} className="flex items-center gap-1.5">
-                    <svg width="14" height="3"><line x1="0" y1="1.5" x2="14" y2="1.5" stroke={item.color} strokeWidth="2" strokeDasharray={item.dashed ? '4 2' : 'none'} /></svg>
-                    <span className="text-[10px] text-slate-400">{item.label}</span>
-                  </div>
-                )})}
-              </div>
-              <div className="flex items-center gap-0.5">
-                {HISTORY_PERIODS.map(function(p) { return (
-                  <button key={p.value} onClick={function() { setIsCustomRange(false); setHistoryPeriod(p.value); setCustomStart('2026-04-15'); setCustomEnd(new Date().toISOString().split('T')[0]) }}
-                    className={'px-2 py-0.5 rounded text-[10px] font-medium transition-all ' + (!isCustomRange && historyPeriod === p.value ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300')}>{p.label}</button>
-                )})}
-              </div>
+            <div className="flex items-center gap-0.5 ml-auto">
+              {HISTORY_PERIODS.map(function(p) { return (
+                <button key={p.value} onClick={function() { setIsCustomRange(false); setHistoryPeriod(p.value); setCustomStart('2026-04-15'); setCustomEnd(new Date().toISOString().split('T')[0]) }}
+                  className={'px-2 py-0.5 rounded text-[10px] font-medium transition-all ' + (!isCustomRange && historyPeriod === p.value ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300')}>{p.label}</button>
+              )})}
+            </div>
+          </div>
+          <div className="flex justify-center mb-3">
+            <div className="flex items-center gap-3 px-2.5 py-1 rounded-md border border-white/[0.05] bg-[#0c1019]">
+              {[
+                { label: 'Aggressive', color: '#f97316' },
+                { label: 'Growth', color: '#10b981' },
+                { label: 'Conservative', color: '#3b82f6' },
+                { label: 'S&P 500', color: '#94a3b8', dashed: true },
+              ].map(function(item) { return (
+                <div key={item.label} className="flex items-center gap-1.5">
+                  <svg width="14" height="3"><line x1="0" y1="1.5" x2="14" y2="1.5" stroke={item.color} strokeWidth="2" strokeDasharray={item.dashed ? '4 2' : 'none'} /></svg>
+                  <span className="text-[10px] text-slate-400">{item.label}</span>
+                </div>
+              )})}
             </div>
           </div>
           {historyLoading ? (
@@ -473,7 +476,8 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
                 : parts[0].slice(2) + '-' + parts[1];
             };
             // Day-1 single point → need dots so something renders. Otherwise lines only.
-            var showDots = chartData.length <= 5;
+            var realPointCount = chartData.filter(function(d) { return d.aggressive != null || d.growth != null || d.conservative != null || d.spy != null }).length;
+            var showDots = realPointCount <= 5;
             return (
               <ResponsiveContainer width="100%" height={300}>
                 <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 8, bottom: 4 }}>
