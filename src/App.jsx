@@ -951,12 +951,12 @@ function EvolutionTab() {
       <Card>
         <div className="grid grid-cols-6 gap-3">
           {[
-            [Database, 'Data Pipeline', '503 S&P 500 tickers · Daily OHLCV · Parquet storage'],
-            [FlaskConical, 'Backtest Engine', 'Vectorized engine · 2000-2026 · Multi-regime validated'],
-            [LineChart, 'Paper Trading', 'Alpaca API · $100K per account · 3 independent paper trading accounts'],
-            [ShieldCheck, 'Risk Manager', 'Trailing stops (7-10%) · Portfolio stops (10-20%) · Circuit breakers · Position limits'],
-            [Brain, 'Self-Improvement', 'Claude Opus-powered weekly evolution cycle with Telegram approval'],
-            [Monitor, 'Dashboard', 'React + Vite on Vercel · Live equity curves · SPY benchmark · Backtest visualization'],
+            [Database, 'Data Pipeline', 'Daily equity data ingestion and storage'],
+            [FlaskConical, 'Backtest Engine', 'Multi-regime historical validation (2000–present)'],
+            [LineChart, 'Paper Trading', 'Live broker integration with 3 independent accounts'],
+            [ShieldCheck, 'Risk Manager', 'Multi-layer protection: position, portfolio, and market-level'],
+            [Brain, 'Self-Improvement', 'AI-powered weekly parameter optimization with human approval'],
+            [Monitor, 'Dashboard', 'Real-time monitoring and performance visualization'],
           ].map(([Icon, l, d], i) => (
             <div key={i} className="rounded-lg border border-white/[0.04] bg-white/[0.02] p-3"><div className="text-emerald-400 mb-1"><Icon size={20} /></div><div className="text-sm font-medium mb-0.5">{l}</div><div className="text-[10px] text-slate-500 leading-tight">{d}</div></div>
           ))}
