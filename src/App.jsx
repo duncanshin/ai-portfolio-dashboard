@@ -567,6 +567,23 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
 function CapitalSlider({ capital, setCapital, metrics }) {
   const presets = [2000, 10000, 100000, 1000000]
   const fmt = formatDollar
+  const MIN_CAPITAL = 100
+  const MAX_CAPITAL = 10000000
+  const [capitalInput, setCapitalInput] = useState('$' + capital.toLocaleString())
+  useEffect(() => {
+    setCapitalInput('$' + capital.toLocaleString())
+  }, [capital])
+  function commitCapitalInput() {
+    const cleaned = capitalInput.replace(/[^0-9.]/g, '')
+    const parsed = parseFloat(cleaned)
+    if (!isFinite(parsed) || isNaN(parsed)) {
+      setCapitalInput('$' + capital.toLocaleString())
+      return
+    }
+    const clamped = Math.max(MIN_CAPITAL, Math.min(MAX_CAPITAL, Math.round(parsed)))
+    setCapital(clamped)
+    setCapitalInput('$' + clamped.toLocaleString())
+  }
   const endVals = metrics ? [
     { k: 'Aggressive', color: '#f97316', v: metrics.Aggressive?.endVal },
     { k: 'Growth', color: '#10b981', v: metrics.Growth?.endVal },
@@ -578,7 +595,18 @@ function CapitalSlider({ capital, setCapital, metrics }) {
       <div className="flex items-center justify-between mb-2 gap-4">
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-slate-500 uppercase">Starting Capital</span>
-          <span className="font-mono text-sm font-bold text-emerald-400">{fmt(capital)}</span>
+          <input
+            type="text"
+            value={capitalInput}
+            onChange={e => setCapitalInput(e.target.value)}
+            onBlur={commitCapitalInput}
+            onKeyDown={e => {
+              if (e.key === 'Enter') { e.currentTarget.blur() }
+              else if (e.key === 'Escape') { setCapitalInput('$' + capital.toLocaleString()); e.currentTarget.blur() }
+            }}
+            spellCheck={false}
+            className="w-28 px-2 py-0.5 rounded bg-transparent border border-white/[0.08] focus:border-emerald-500/50 focus:outline-none font-mono text-sm font-bold text-emerald-400 transition-colors"
+          />
         </div>
         <div className="flex items-center gap-1">
           {presets.map(p => (
