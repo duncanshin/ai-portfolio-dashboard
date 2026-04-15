@@ -665,7 +665,7 @@ function ProfilesTab({ metrics, inflationAdj }) {
   )
 }
 
-function TradesTab({ liveData }) {
+function TradesTab({ liveData, lastUpdated }) {
   const profileColors = {
     aggressive: { color: '#f97316', bg: 'rgba(249,115,22,0.08)', border: 'rgba(249,115,22,0.25)' },
     growth: { color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)' },
@@ -684,7 +684,9 @@ function TradesTab({ liveData }) {
   const summary = liveData.summary || {}
   const profiles = liveData.profiles || {}
   const trades = liveData.trades || []
-  const tsSource = liveData.timestamp || liveData.updated_at
+  // Always read timestamp from the shared top-level lastUpdated state so every
+  // tab reflects the same poll cycle. Fall back to the API's own timestamp.
+  const tsSource = lastUpdated || liveData.timestamp || liveData.updated_at
   const relTime = relativeTime(tsSource)
   const updatedLabel = relTime ? `Updated ${relTime}` : 'Updated: awaiting data'
 
@@ -747,47 +749,84 @@ function TradesTab({ liveData }) {
                 <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-2">Current Holdings</div>
                 {positions.length === 0 ? (
                   <div className="text-xs text-slate-500 italic py-2">No positions yet — buys at next market open</div>
-                ) : (
-                  <div className="overflow-hidden">
-                    <table className="w-full text-[11px]">
-                      <thead>
-                        <tr className="text-[10px] text-slate-500 border-b border-white/5">
-                          <th className="text-left font-medium py-1 pr-2">Ticker</th>
-                          <th className="text-right font-medium py-1 pr-2">Shares</th>
-                          <th className="text-right font-medium py-1 pr-2">Avg Entry</th>
-                          <th className="text-right font-medium py-1 pr-2">Current</th>
-                          <th className="text-right font-medium py-1 pr-2">P&L</th>
-                          <th className="text-right font-medium py-1">P&L %</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[...positions].sort(function(a, b) {
-                          var apct = a.unrealizedPnlPct != null ? a.unrealizedPnlPct : (a.unrealizedPnl_pct || 0)
-                          var bpct = b.unrealizedPnlPct != null ? b.unrealizedPnlPct : (b.unrealizedPnl_pct || 0)
-                          return bpct - apct
-                        }).map(function(pos, i) {
-                          var ticker = pos.symbol || pos.ticker
-                          var qty = pos.qty || pos.shares || 0
-                          var avgEntry = pos.avgEntry != null ? pos.avgEntry : (pos.avg_entry_price || 0)
-                          var current = pos.currentPrice != null ? pos.currentPrice : (pos.current_price || 0)
-                          var pl = pos.unrealizedPnl || 0
-                          var plpct = pos.unrealizedPnlPct != null ? pos.unrealizedPnlPct : (pos.unrealizedPnl_pct || 0)
-                          var plColor = pl >= 0 ? 'text-emerald-400' : 'text-red-400'
-                          return (
-                            <tr key={i} className="border-b border-white/[0.03] last:border-0 hover:bg-white/[0.02]">
-                              <td className="py-1 pr-2 font-mono font-semibold">{ticker}</td>
-                              <td className="py-1 pr-2 text-right font-mono text-slate-300">{qty}</td>
-                              <td className="py-1 pr-2 text-right font-mono text-slate-400">${avgEntry.toFixed(2)}</td>
-                              <td className="py-1 pr-2 text-right font-mono text-slate-300">${current.toFixed(2)}</td>
-                              <td className={'py-1 pr-2 text-right font-mono ' + plColor}>{pl >= 0 ? '+' : ''}${pl.toFixed(2)}</td>
-                              <td className={'py-1 text-right font-mono ' + plColor}>{plpct >= 0 ? '+' : ''}{plpct.toFixed(2)}%</td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                ) : (function() {
+                  // Normalize each position to a consistent camelCase shape.
+                  // Alpaca raw returns snake_case; our /api/portfolio normalizes to camelCase — handle both.
+                  var norm = positions.map(function(p) {
+                    return {
+                      ticker:    p.symbol || p.ticker,
+                      qty:       Number(p.qty != null ? p.qty : (p.shares || 0)),
+                      avgEntry:  Number(p.avgEntry != null ? p.avgEntry : (p.avg_entry_price || 0)),
+                      current:   Number(p.currentPrice != null ? p.currentPrice : (p.current_price || 0)),
+                      changeToday: (p.changeToday != null ? Number(p.changeToday) : (p.change_today != null ? Number(p.change_today) : null)),
+                      pl:        Number(p.unrealizedPnl != null ? p.unrealizedPnl : (p.unrealized_pl || 0)),
+                      plpct:     Number(p.unrealizedPnlPct != null ? p.unrealizedPnlPct : (p.unrealized_plpc != null ? p.unrealized_plpc : (p.unrealizedPnl_pct || 0))),
+                      marketValue: Number(p.marketValue != null ? p.marketValue : (p.market_value || 0)),
+                    }
+                  }).sort(function(a, b) { return b.plpct - a.plpct })
+                  // Totals.
+                  var totShares = norm.reduce(function(s, r) { return s + r.qty }, 0)
+                  var totPl     = norm.reduce(function(s, r) { return s + r.pl }, 0)
+                  var totMv     = norm.reduce(function(s, r) { return s + r.marketValue }, 0)
+                  var totCost   = totMv - totPl                             // cost basis
+                  var totPlPct  = totCost > 0 ? (totPl / totCost) * 100 : 0
+                  var totWeight = equity > 0 ? (totMv / equity) * 100 : 0
+                  // Portfolio-weighted daily change (by market value).
+                  var dayMv = 0, dayMvWithChange = 0
+                  norm.forEach(function(r) { dayMv += r.marketValue; if (r.changeToday != null) dayMvWithChange += r.marketValue * r.changeToday })
+                  var portDayPct = dayMv > 0 ? (dayMvWithChange / dayMv) : null
+                  return (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[11px]">
+                        <thead>
+                          <tr className="text-[10px] text-slate-500 border-b border-white/5">
+                            <th className="text-left font-medium py-1 pr-2">Ticker</th>
+                            <th className="text-right font-medium py-1 pr-2">Shares</th>
+                            <th className="text-right font-medium py-1 pr-2">Avg Entry</th>
+                            <th className="text-right font-medium py-1 pr-2">Current</th>
+                            <th className="text-right font-medium py-1 pr-2">Today</th>
+                            <th className="text-right font-medium py-1 pr-2">P&L $</th>
+                            <th className="text-right font-medium py-1 pr-2">P&L %</th>
+                            <th className="text-right font-medium py-1 pr-2">Mkt Value</th>
+                            <th className="text-right font-medium py-1">Weight</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {norm.map(function(r, i) {
+                            var plColor  = r.pl >= 0 ? 'text-emerald-400' : 'text-red-400'
+                            var dayColor = r.changeToday == null ? 'text-slate-500' : (r.changeToday >= 0 ? 'text-emerald-400' : 'text-red-400')
+                            var weight = equity > 0 ? (r.marketValue / equity) * 100 : 0
+                            var zebra = i % 2 === 1 ? 'bg-white/[0.02]' : ''
+                            return (
+                              <tr key={i} className={'border-b border-white/[0.03] last:border-0 hover:bg-white/[0.04] ' + zebra}>
+                                <td className="py-1 pr-2 font-mono font-semibold">{r.ticker}</td>
+                                <td className="py-1 pr-2 text-right font-mono text-slate-300">{r.qty}</td>
+                                <td className="py-1 pr-2 text-right font-mono text-slate-400">${r.avgEntry.toFixed(2)}</td>
+                                <td className="py-1 pr-2 text-right font-mono text-slate-300">${r.current.toFixed(2)}</td>
+                                <td className={'py-1 pr-2 text-right font-mono ' + dayColor}>{r.changeToday == null ? '—' : ((r.changeToday >= 0 ? '+' : '') + r.changeToday.toFixed(2) + '%')}</td>
+                                <td className={'py-1 pr-2 text-right font-mono ' + plColor}>{(r.pl >= 0 ? '+$' : '-$') + Math.abs(r.pl).toFixed(2)}</td>
+                                <td className={'py-1 pr-2 text-right font-mono ' + plColor}>{(r.plpct >= 0 ? '+' : '') + r.plpct.toFixed(2) + '%'}</td>
+                                <td className="py-1 pr-2 text-right font-mono text-slate-300">${r.marketValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                                <td className="py-1 text-right font-mono text-slate-400">{weight.toFixed(1)}%</td>
+                              </tr>
+                            )
+                          })}
+                          <tr className="border-t border-white/10 bg-slate-800/30 font-semibold">
+                            <td className="py-1.5 pr-2 text-[10px] uppercase text-slate-400">Total</td>
+                            <td className="py-1.5 pr-2 text-right font-mono text-slate-300">{totShares}</td>
+                            <td className="py-1.5 pr-2"></td>
+                            <td className="py-1.5 pr-2"></td>
+                            <td className={'py-1.5 pr-2 text-right font-mono ' + (portDayPct == null ? 'text-slate-500' : portDayPct >= 0 ? 'text-emerald-400' : 'text-red-400')}>{portDayPct == null ? '—' : ((portDayPct >= 0 ? '+' : '') + portDayPct.toFixed(2) + '%')}</td>
+                            <td className={'py-1.5 pr-2 text-right font-mono ' + (totPl >= 0 ? 'text-emerald-400' : 'text-red-400')}>{(totPl >= 0 ? '+$' : '-$') + Math.abs(totPl).toFixed(2)}</td>
+                            <td className={'py-1.5 pr-2 text-right font-mono ' + (totPl >= 0 ? 'text-emerald-400' : 'text-red-400')}>{(totPlPct >= 0 ? '+' : '') + totPlPct.toFixed(2) + '%'}</td>
+                            <td className="py-1.5 pr-2 text-right font-mono text-slate-200">${totMv.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                            <td className="py-1.5 text-right font-mono text-slate-200">{totWeight.toFixed(1)}%</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+                })()}
               </div>
             </Card>
           )
@@ -904,6 +943,7 @@ export default function App() {
   const [jsonMetrics, setJsonMetrics] = useState(null)
   const [jsonTrades, setJsonTrades] = useState(null)
   const [liveData, setLiveData] = useState(null)
+  const [lastUpdated, setLastUpdated] = useState(null)
   const [capital, setCapital] = useState(INITIAL_CAPITAL)
 
   useEffect(() => {
@@ -919,11 +959,19 @@ export default function App() {
       .catch(err => setLoadError(err.message))
   }, [])
 
+  // Single source of truth for Alpaca/benchmark live state.
+  // Polls every 60s; every child tab reads from this via props — no duplicate fetches.
   useEffect(() => {
-    fetch('/api/portfolio')
-      .then(r => { if (!r.ok) throw new Error('API error'); return r.json() })
-      .then(data => setLiveData(data))
-      .catch(err => console.error('Portfolio fetch failed:', err))
+    let cancelled = false
+    const pull = () => {
+      fetch('/api/portfolio')
+        .then(r => { if (!r.ok) throw new Error('API error'); return r.json() })
+        .then(data => { if (!cancelled) { setLiveData(data); setLastUpdated(new Date().toISOString()) } })
+        .catch(err => console.error('Portfolio fetch failed:', err))
+    }
+    pull()
+    const id = setInterval(pull, 60_000)
+    return () => { cancelled = true; clearInterval(id) }
   }, [])
 
   const dates = useMemo(() => fullMergedCurve ? fullMergedCurve.map(d => d.date) : [], [fullMergedCurve])
@@ -931,7 +979,7 @@ export default function App() {
   const metrics = useMemo(() => fullMergedCurve ? calcMetrics(fullMergedCurve, startIdx, endIdx, jsonMetrics, jsonTrades, dates, capital) : null, [fullMergedCurve, startIdx, endIdx, jsonMetrics, jsonTrades, dates, capital])
   const inflMetrics = useMemo(() => (inflationAdj && curveData) ? calcMetrics(curveData, startIdx, endIdx, null, jsonTrades, dates, capital) : metrics, [curveData, inflationAdj, startIdx, endIdx, metrics, jsonTrades, dates, capital])
   const tabProps = { metrics: inflMetrics, inflationAdj, setInflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates, capital, setCapital }
-  const TabContent = { overview: () => <OverviewTab {...tabProps} liveData={liveData} />, backtest: () => <BacktestTab {...tabProps} />, profiles: () => <ProfilesTab metrics={inflMetrics} inflationAdj={inflationAdj} />, trades: () => <TradesTab liveData={liveData} />, evolution: () => <EvolutionTab /> }
+  const TabContent = { overview: () => <OverviewTab {...tabProps} liveData={liveData} lastUpdated={lastUpdated} />, backtest: () => <BacktestTab {...tabProps} />, profiles: () => <ProfilesTab metrics={inflMetrics} inflationAdj={inflationAdj} />, trades: () => <TradesTab liveData={liveData} lastUpdated={lastUpdated} />, evolution: () => <EvolutionTab /> }
   return (
     <div className="min-h-screen bg-[#0a0e17]">
       <header className="border-b border-white/[0.06] bg-[#0a0e17]/80 backdrop-blur-md sticky top-0 z-50">
