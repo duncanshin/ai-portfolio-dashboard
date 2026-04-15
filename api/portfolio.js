@@ -29,8 +29,12 @@ export default async function handler(req, res) {
       'APCA-API-SECRET-KEY': creds.secret,
     };
     try {
-      var accountRes = await fetch(BASE_URL + '/v2/account', { headers: headers });
-      var positionsRes = await fetch(BASE_URL + '/v2/positions', { headers: headers });
+      var accountPromise = fetch(BASE_URL + '/v2/account', { headers: headers });
+      var positionsPromise = fetch(BASE_URL + '/v2/positions', { headers: headers });
+      var ordersPromise = fetch(BASE_URL + '/v2/orders?status=closed&limit=50&direction=desc', { headers: headers });
+      var accountRes = await accountPromise;
+      var positionsRes = await positionsPromise;
+      var ordersRes = await ordersPromise;
       if (!accountRes.ok) {
         var errBody = await accountRes.text();
         return { name: name, error: 'Alpaca API error', status: accountRes.status, detail: errBody, connected: false };
@@ -38,6 +42,26 @@ export default async function handler(req, res) {
 
       var account = await accountRes.json();
       var positions = await positionsRes.json();
+      var orders = [];
+      if (ordersRes && ordersRes.ok) {
+        try { orders = await ordersRes.json(); } catch (e) { orders = []; }
+        if (!Array.isArray(orders)) orders = [];
+      }
+      var trades = orders
+        .filter(function(o) { return o.filled_at || o.submitted_at; })
+        .map(function(o) {
+          return {
+            order_id: o.id,
+            ticker: o.symbol,
+            side: o.side,
+            shares: parseFloat(o.filled_qty || o.qty || 0),
+            price: o.filled_avg_price ? parseFloat(o.filled_avg_price) : null,
+            filled_at: o.filled_at,
+            submitted_at: o.filled_at || o.submitted_at,
+            status: o.status,
+            profile: name,
+          };
+        });
       var equity = parseFloat(account.equity);
       var lastEquity = parseFloat(account.last_equity);
       var dailyPnl = equity - lastEquity;
@@ -54,6 +78,7 @@ export default async function handler(req, res) {
         todayReturn: dailyPnl,
         totalReturnPct: dailyPnlPct,
         activePositions: positions.length,
+        trades: trades,
         positions: positions.map(function(p) {
           return {
             symbol: p.symbol,
@@ -160,6 +185,18 @@ export default async function handler(req, res) {
     var benchmark = await fetchBenchmark(benchmarkStartDate);
 
     var connected = profileResults.filter(function(p) { return p.connected; });
+
+    // Flat trades array (each tagged with profile) — most recent first. Used by
+    // "Recent Trades by Profile" section which filters by t.profile.
+    var allTrades = [];
+    connected.forEach(function(p) {
+      if (Array.isArray(p.trades)) allTrades = allTrades.concat(p.trades);
+    });
+    allTrades.sort(function(a, b) {
+      var ta = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
+      var tb = b.submitted_at ? new Date(b.submitted_at).getTime() : 0;
+      return tb - ta;
+    });
     var totalValue = connected.reduce(function(sum, p) { return sum + (p.portfolioValue || 0); }, 0);
     var totalPnl = connected.reduce(function(sum, p) { return sum + (p.todayReturn || 0); }, 0);
     var totalPositions = connected.reduce(function(sum, p) { return sum + (p.activePositions || 0); }, 0);
@@ -184,6 +221,7 @@ export default async function handler(req, res) {
         conservative: conservative,
       },
       benchmark: benchmark,
+      trades: allTrades,
     });
   } catch (err) {
     return res.status(500).json({ error: 'Failed to fetch', message: err.message });

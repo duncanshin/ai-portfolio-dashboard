@@ -894,7 +894,7 @@ function TradesTab({ liveData, lastUpdated }) {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
           {['aggressive', 'growth', 'conservative'].map(function(pname) {
             var colors = profileColors[pname]
-            var pTrades = trades.filter(function(t) { return t.profile === pname }).slice(0, 15)
+            var pTrades = trades.filter(function(t) { return t.profile === pname }).slice(0, 10)
             return (
               <div key={pname}>
                 <div className="flex items-center gap-2 mb-2 pb-1.5 border-b" style={{ borderColor: colors.border }}>
@@ -912,23 +912,23 @@ function TradesTab({ liveData, lastUpdated }) {
                         <th className="text-left font-medium py-1 pr-2">Side</th>
                         <th className="text-left font-medium py-1 pr-2">Ticker</th>
                         <th className="text-right font-medium py-1 pr-2">Shares</th>
-                        <th className="text-left font-medium py-1">Status</th>
+                        <th className="text-right font-medium py-1">Price</th>
                       </tr>
                     </thead>
                     <tbody>
                       {pTrades.map(function(trade, i) {
                         var time = trade.submitted_at ? new Date(trade.submitted_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
-                        var statusText = (trade.status || 'submitted').replace('OrderStatus.', '')
-                        var statusClass = (trade.status || '').includes('PENDING') ? 'bg-amber-500/10 text-amber-400'
-                          : (trade.status || '').includes('FILLED') ? 'bg-emerald-500/10 text-emerald-400'
-                          : 'bg-slate-500/10 text-slate-400'
+                        var isBuy = trade.side === 'buy'
+                        var rowTint = isBuy ? 'bg-sky-500/[0.04] hover:bg-sky-500/[0.08]' : 'bg-amber-500/[0.04] hover:bg-amber-500/[0.08]'
+                        var badgeClass = isBuy ? 'bg-sky-500/15 text-sky-300' : 'bg-amber-500/15 text-amber-300'
+                        var priceStr = (trade.price != null) ? ('$' + Number(trade.price).toFixed(2)) : '—'
                         return (
-                          <tr key={trade.order_id || i} className="border-b border-white/[0.03] last:border-0 hover:bg-white/[0.02]">
+                          <tr key={trade.order_id || i} className={'border-b border-white/[0.03] last:border-0 ' + rowTint}>
                             <td className="py-1 pr-2 text-[10px] text-slate-400 whitespace-nowrap">{time}</td>
-                            <td className="py-1 pr-2"><span className={'text-[10px] font-bold uppercase ' + (trade.side === 'buy' ? 'text-emerald-400' : 'text-red-400')}>{trade.side}</span></td>
+                            <td className="py-1 pr-2"><span className={'text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ' + badgeClass}>{trade.side}</span></td>
                             <td className="py-1 pr-2 font-mono font-semibold">{trade.ticker}</td>
                             <td className="py-1 pr-2 text-right font-mono text-slate-300">{trade.shares}</td>
-                            <td className="py-1"><span className={'text-[10px] px-1.5 py-0.5 rounded ' + statusClass}>{statusText}</span></td>
+                            <td className="py-1 text-right font-mono text-slate-300">{priceStr}</td>
                           </tr>
                         )
                       })}
