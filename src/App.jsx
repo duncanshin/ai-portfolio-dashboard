@@ -743,49 +743,107 @@ function TradesTab({ liveData }) {
                 <div><div className="text-xs text-slate-500">P&L</div><div className={`font-mono ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{pnl >= 0 ? '+' : ''}{formatDollar(pnl)}</div></div>
                 <div><div className="text-xs text-slate-500">P&L %</div><div className={`font-mono ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{pnl >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%</div></div>
               </div>
-              {positions.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-white/5">
-                  <div className="text-xs text-slate-500 mb-2">Holdings</div>
-                  {positions.map((pos, i) => (
-                    <div key={i} className="flex items-center justify-between py-1 text-sm">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold">{pos.symbol || pos.ticker}</span>
-                        <span className="text-xs text-slate-500">{pos.qty || pos.shares} shares</span>
-                      </div>
-                      <div className={`font-mono text-xs ${(pos.unrealizedPnl||0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{(pos.unrealizedPnl||0) >= 0 ? '+' : ''}${(pos.unrealizedPnl||0).toFixed(2)} ({(pos.unrealizedPnlPct != null ? pos.unrealizedPnlPct : pos.unrealizedPnl_pct || 0) >= 0 ? '+' : ''}{(pos.unrealizedPnlPct != null ? pos.unrealizedPnlPct : pos.unrealizedPnl_pct || 0).toFixed(1)}%)</div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div className="mt-4 pt-3 border-t border-white/10">
+                <div className="text-[10px] text-slate-500 uppercase tracking-wide mb-2">Current Holdings</div>
+                {positions.length === 0 ? (
+                  <div className="text-xs text-slate-500 italic py-2">No positions yet — buys at next market open</div>
+                ) : (
+                  <div className="overflow-hidden">
+                    <table className="w-full text-[11px]">
+                      <thead>
+                        <tr className="text-[10px] text-slate-500 border-b border-white/5">
+                          <th className="text-left font-medium py-1 pr-2">Ticker</th>
+                          <th className="text-right font-medium py-1 pr-2">Shares</th>
+                          <th className="text-right font-medium py-1 pr-2">Avg Entry</th>
+                          <th className="text-right font-medium py-1 pr-2">Current</th>
+                          <th className="text-right font-medium py-1 pr-2">P&L</th>
+                          <th className="text-right font-medium py-1">P&L %</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[...positions].sort(function(a, b) {
+                          var apct = a.unrealizedPnlPct != null ? a.unrealizedPnlPct : (a.unrealizedPnl_pct || 0)
+                          var bpct = b.unrealizedPnlPct != null ? b.unrealizedPnlPct : (b.unrealizedPnl_pct || 0)
+                          return bpct - apct
+                        }).map(function(pos, i) {
+                          var ticker = pos.symbol || pos.ticker
+                          var qty = pos.qty || pos.shares || 0
+                          var avgEntry = pos.avgEntry != null ? pos.avgEntry : (pos.avg_entry_price || 0)
+                          var current = pos.currentPrice != null ? pos.currentPrice : (pos.current_price || 0)
+                          var pl = pos.unrealizedPnl || 0
+                          var plpct = pos.unrealizedPnlPct != null ? pos.unrealizedPnlPct : (pos.unrealizedPnl_pct || 0)
+                          var plColor = pl >= 0 ? 'text-emerald-400' : 'text-red-400'
+                          return (
+                            <tr key={i} className="border-b border-white/[0.03] last:border-0 hover:bg-white/[0.02]">
+                              <td className="py-1 pr-2 font-mono font-semibold">{ticker}</td>
+                              <td className="py-1 pr-2 text-right font-mono text-slate-300">{qty}</td>
+                              <td className="py-1 pr-2 text-right font-mono text-slate-400">${avgEntry.toFixed(2)}</td>
+                              <td className="py-1 pr-2 text-right font-mono text-slate-300">${current.toFixed(2)}</td>
+                              <td className={'py-1 pr-2 text-right font-mono ' + plColor}>{pl >= 0 ? '+' : ''}${pl.toFixed(2)}</td>
+                              <td className={'py-1 text-right font-mono ' + plColor}>{plpct >= 0 ? '+' : ''}{plpct.toFixed(2)}%</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </Card>
           )
         })}
       </div>
 
       <Card>
-        <h3 className="font-semibold mb-3">Recent Trades</h3>
-        <table className="w-full text-sm">
-          <thead><tr className="text-xs text-slate-500 border-b border-white/5">
-            <th className="text-left py-2 pr-3">Time</th><th className="text-left py-2 pr-3">Profile</th><th className="text-left py-2 pr-3">Side</th><th className="text-left py-2 pr-3">Ticker</th><th className="text-right py-2 pr-3">Shares</th><th className="text-left py-2">Status</th>
-          </tr></thead>
-          <tbody>
-            {trades.slice(0, 30).map((trade, i) => {
-              const colors = profileColors[trade.profile] || profileColors.growth
-              const time = trade.submitted_at ? new Date(trade.submitted_at).toLocaleString(undefined, {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) : ''
-              return (
-                <tr key={trade.order_id || i} className="border-b border-white/5 hover:bg-white/[0.02]">
-                  <td className="py-2 pr-3 text-xs text-slate-400">{time}</td>
-                  <td className="py-2 pr-3"><span className="text-xs px-1.5 py-0.5 rounded" style={{backgroundColor: colors.bg, color: colors.color, border: '1px solid ' + colors.border}}>{(trade.profile||'').slice(0,3).toUpperCase()}</span></td>
-                  <td className="py-2 pr-3"><span className={`text-xs font-bold uppercase ${trade.side === 'buy' ? 'text-emerald-400' : 'text-red-400'}`}>{trade.side}</span></td>
-                  <td className="py-2 pr-3 font-mono font-bold">{trade.ticker}</td>
-                  <td className="py-2 pr-3 text-right font-mono text-slate-300">{trade.shares}</td>
-                  <td className="py-2 text-xs"><span className={`px-1.5 py-0.5 rounded ${(trade.status||'').includes('PENDING') ? 'bg-amber-500/10 text-amber-400' : (trade.status||'').includes('FILLED') ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-500/10 text-slate-400'}`}>{(trade.status||'submitted').replace('OrderStatus.','')}</span></td>
-                </tr>
-              )
-            })}
-            {trades.length === 0 && <tr><td colSpan={6} className="py-8 text-center text-slate-500">No trades recorded yet</td></tr>}
-          </tbody>
-        </table>
+        <h3 className="font-semibold mb-4">Recent Trades by Profile</h3>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {['aggressive', 'growth', 'conservative'].map(function(pname) {
+            var colors = profileColors[pname]
+            var pTrades = trades.filter(function(t) { return t.profile === pname }).slice(0, 15)
+            return (
+              <div key={pname}>
+                <div className="flex items-center gap-2 mb-2 pb-1.5 border-b" style={{ borderColor: colors.border }}>
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: colors.color }} />
+                  <span className="font-semibold text-sm capitalize" style={{ color: colors.color }}>{pname}</span>
+                  <span className="text-[10px] text-slate-500 ml-auto">{pTrades.length} trade{pTrades.length !== 1 ? 's' : ''}</span>
+                </div>
+                {pTrades.length === 0 ? (
+                  <div className="text-xs text-slate-500 italic py-3">No trades recorded yet</div>
+                ) : (
+                  <table className="w-full text-[11px]">
+                    <thead>
+                      <tr className="text-[10px] text-slate-500 border-b border-white/5">
+                        <th className="text-left font-medium py-1 pr-2">Time</th>
+                        <th className="text-left font-medium py-1 pr-2">Side</th>
+                        <th className="text-left font-medium py-1 pr-2">Ticker</th>
+                        <th className="text-right font-medium py-1 pr-2">Shares</th>
+                        <th className="text-left font-medium py-1">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pTrades.map(function(trade, i) {
+                        var time = trade.submitted_at ? new Date(trade.submitted_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
+                        var statusText = (trade.status || 'submitted').replace('OrderStatus.', '')
+                        var statusClass = (trade.status || '').includes('PENDING') ? 'bg-amber-500/10 text-amber-400'
+                          : (trade.status || '').includes('FILLED') ? 'bg-emerald-500/10 text-emerald-400'
+                          : 'bg-slate-500/10 text-slate-400'
+                        return (
+                          <tr key={trade.order_id || i} className="border-b border-white/[0.03] last:border-0 hover:bg-white/[0.02]">
+                            <td className="py-1 pr-2 text-[10px] text-slate-400 whitespace-nowrap">{time}</td>
+                            <td className="py-1 pr-2"><span className={'text-[10px] font-bold uppercase ' + (trade.side === 'buy' ? 'text-emerald-400' : 'text-red-400')}>{trade.side}</span></td>
+                            <td className="py-1 pr-2 font-mono font-semibold">{trade.ticker}</td>
+                            <td className="py-1 pr-2 text-right font-mono text-slate-300">{trade.shares}</td>
+                            <td className="py-1"><span className={'text-[10px] px-1.5 py-0.5 rounded ' + statusClass}>{statusText}</span></td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )
+          })}
+        </div>
       </Card>
     </div>
   )
