@@ -1,14 +1,27 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend, ReferenceArea } from 'recharts'
-import { Activity, TrendingUp, Shield, Zap, BarChart3, GitBranch, ChevronRight, Clock, CheckCircle, ToggleLeft, ToggleRight, Calendar, Database, FlaskConical, LineChart, ShieldCheck, Brain, SearchCheck, BookOpen, Lightbulb, UserCheck, SlidersHorizontal, Timer, Scale, Globe, Lock, ShieldAlert, ListOrdered, Undo2, XCircle, HelpCircle, PauseCircle, PlayCircle, Bot } from 'lucide-react'
+import { Activity, TrendingUp, Shield, Zap, BarChart3, GitBranch, ChevronRight, Clock, CheckCircle, ToggleLeft, ToggleRight, Calendar, Database, FlaskConical, LineChart, ShieldCheck, Brain, SearchCheck, BookOpen, Lightbulb, UserCheck, SlidersHorizontal, Timer, Scale, Globe, Lock, ShieldAlert, ListOrdered, Undo2, XCircle, HelpCircle, PauseCircle, PlayCircle, Bot, Settings, Monitor } from 'lucide-react'
+
+// Human-readable relative time for the "Updated …" line.
+const relativeTime = (iso) => {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return null
+  const s = Math.floor((Date.now() - d.getTime()) / 1000)
+  if (s < 5) return 'just now'
+  if (s < 60) return `${s} sec ago`
+  if (s < 3600) { const m = Math.floor(s/60); return `${m} min ago` }
+  if (s < 86400) { const h = Math.floor(s/3600); return `${h} hr${h>1?'s':''} ago` }
+  const days = Math.floor(s/86400); return `${days} day${days>1?'s':''} ago`
+}
 
 const INFLATION_RATE = 0.03
 const INITIAL_CAPITAL = 100000
 
 const BASE_PROFILES = {
-  aggressive: { name: 'Aggressive', color: '#f97316', bg: 'rgba(249,115,22,0.08)', border: 'rgba(249,115,22,0.25)', winRate: 60.7, positions: 10, rebalance: '7d', trailingStop: '10%', strategy: 'Pure momentum', icon: Zap },
-  growth: { name: 'Growth', label: "Duncan's Profile", color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)', winRate: 67.8, positions: 12, rebalance: '14d', trailingStop: '9%', strategy: 'Momentum + Quality + Low-Vol', icon: TrendingUp },
-  conservative: { name: 'Conservative', color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.25)', winRate: 71.1, positions: 15, rebalance: '14d', trailingStop: '7%', strategy: 'Quality + Low-volatility', icon: Shield },
+  aggressive: { name: 'Aggressive', color: '#f97316', bg: 'rgba(249,115,22,0.08)', border: 'rgba(249,115,22,0.25)', winRate: 60.3, positions: 10, rebalance: '7d', trailingStop: '10%', strategy: 'Pure momentum', icon: Zap },
+  growth: { name: 'Growth', label: "Duncan's Profile", color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)', winRate: 67.5, positions: 12, rebalance: '14d', trailingStop: '9%', strategy: 'Momentum + Quality', icon: TrendingUp },
+  conservative: { name: 'Conservative', color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', border: 'rgba(59,130,246,0.25)', winRate: 71.0, positions: 15, rebalance: '14d', trailingStop: '7%', strategy: 'Momentum + Quality', icon: Shield },
   benchmark: { name: 'S&P 500', color: '#cbd5e1', winRate: null }
 }
 
@@ -168,7 +181,7 @@ const TABS = [
   { id: 'backtest', label: 'Backtest Results', icon: BarChart3 },
   { id: 'profiles', label: 'Profile Comparison', icon: GitBranch },
   { id: 'trades', label: 'Live Trades', icon: TrendingUp },
-  { id: 'evolution', label: 'System', icon: Zap },
+  { id: 'evolution', label: 'System', icon: Settings },
 ]
 
 function Card({ children, className = '', glow }) {
@@ -634,7 +647,7 @@ function ProfilesTab({ metrics, inflationAdj }) {
     { metric: 'DD Control', Aggressive: (100 - m.Aggressive.maxDD), Growth: (100 - m.Growth.maxDD), Conservative: (100 - m.Conservative.maxDD), max: 100 },
   ].map(d => ({ ...d, Aggressive: (d.Aggressive / d.max) * 100, Growth: (d.Growth / d.max) * 100, Conservative: (d.Conservative / d.max) * 100 })) : []
   const params = [
-    { l: 'Strategy', a: 'Pure momentum', g: 'Momentum + Quality', c: 'Quality + Low-vol' },
+    { l: 'Strategy', a: 'Pure momentum', g: 'Momentum + Quality', c: 'Momentum + Quality' },
     { l: 'Positions', a: '10', g: '12', c: '15' },{ l: 'Max Position Size', a: '15%', g: '10%', c: '6%' },
     { l: 'Trailing Stop', a: '10%', g: '9%', c: '7%' },{ l: 'Weekly DD → 50% Cash', a: '6%', g: '4%', c: '4%' },
     { l: 'Critical DD → 100% Cash', a: '12%', g: '7%', c: '7%' },{ l: 'Max Sector', a: '40%', g: '40%', c: '40%' },
@@ -671,13 +684,15 @@ function TradesTab({ liveData }) {
   const summary = liveData.summary || {}
   const profiles = liveData.profiles || {}
   const trades = liveData.trades || []
-  const updatedAt = liveData.updated_at ? new Date(liveData.updated_at).toLocaleString() : 'Unknown'
+  const tsSource = liveData.timestamp || liveData.updated_at
+  const relTime = relativeTime(tsSource)
+  const updatedLabel = relTime ? `Updated ${relTime}` : 'Updated: awaiting data'
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-semibold">Live Paper Trading</h2>
-        <p className="text-sm text-slate-500">Positions from Alpaca paper accounts · Updated {updatedAt}</p>
+        <p className="text-sm text-slate-500">Positions from Alpaca paper accounts · {updatedLabel}</p>
       </div>
 
       <Card>
@@ -702,11 +717,17 @@ function TradesTab({ liveData }) {
       </Card>
 
       <div className="grid grid-cols-3 gap-4">
-        {Object.entries(profiles).map(([name, data]) => {
+        {['aggressive', 'growth', 'conservative'].map(name => {
+          const data = profiles[name] || {}
           const colors = profileColors[name] || profileColors.growth
-          const account = data.account || {}
+          const connected = data.connected
+          const equity = connected ? (data.portfolioValue || data.equity || 0) : 100000
+          const cash = connected ? (data.cash || 0) : 100000
           const positions = data.positions || []
-          const pnl = data.total_pnl || 0
+          // Total P&L since $100K inception = equity − 100000 (positions field uses Alpaca's own key names).
+          const INITIAL = 100000
+          const pnl = connected ? equity - INITIAL : 0
+          const pnlPct = INITIAL > 0 ? (pnl / INITIAL) * 100 : 0
           return (
             <Card key={name}>
               <div className="mb-3 flex items-center justify-between">
@@ -717,10 +738,10 @@ function TradesTab({ liveData }) {
                 <span className="text-xs text-slate-500">{positions.length} position{positions.length !== 1 ? 's' : ''}</span>
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><div className="text-xs text-slate-500">Equity</div><div className="font-mono font-bold" style={{color: colors.color}}>{formatDollar(account.equity||0)}</div></div>
-                <div><div className="text-xs text-slate-500">Cash</div><div className="font-mono text-slate-300">{formatDollar(account.cash||0)}</div></div>
+                <div><div className="text-xs text-slate-500">Equity</div><div className="font-mono font-bold" style={{color: colors.color}}>{formatDollar(equity)}</div></div>
+                <div><div className="text-xs text-slate-500">Cash</div><div className="font-mono text-slate-300">{formatDollar(cash)}</div></div>
                 <div><div className="text-xs text-slate-500">P&L</div><div className={`font-mono ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{pnl >= 0 ? '+' : ''}{formatDollar(pnl)}</div></div>
-                <div><div className="text-xs text-slate-500">P&L %</div><div className={`font-mono ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{pnl >= 0 ? '+' : ''}{(data.total_pnl_pct||0).toFixed(2)}%</div></div>
+                <div><div className="text-xs text-slate-500">P&L %</div><div className={`font-mono ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{pnl >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%</div></div>
               </div>
               {positions.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-white/5">
@@ -728,10 +749,10 @@ function TradesTab({ liveData }) {
                   {positions.map((pos, i) => (
                     <div key={i} className="flex items-center justify-between py-1 text-sm">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold">{pos.ticker}</span>
-                        <span className="text-xs text-slate-500">{pos.shares} shares</span>
+                        <span className="font-mono font-bold">{pos.symbol || pos.ticker}</span>
+                        <span className="text-xs text-slate-500">{pos.qty || pos.shares} shares</span>
                       </div>
-                      <div className={`font-mono text-xs ${pos.unrealizedPnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{pos.unrealizedPnl >= 0 ? '+' : ''}${pos.unrealizedPnl?.toFixed(2)} ({pos.unrealizedPnl_pct >= 0 ? '+' : ''}{pos.unrealizedPnl_pct?.toFixed(1)}%)</div>
+                      <div className={`font-mono text-xs ${(pos.unrealizedPnl||0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{(pos.unrealizedPnl||0) >= 0 ? '+' : ''}${(pos.unrealizedPnl||0).toFixed(2)} ({(pos.unrealizedPnlPct != null ? pos.unrealizedPnlPct : pos.unrealizedPnl_pct || 0) >= 0 ? '+' : ''}{(pos.unrealizedPnlPct != null ? pos.unrealizedPnlPct : pos.unrealizedPnl_pct || 0).toFixed(1)}%)</div>
                     </div>
                   ))}
                 </div>
@@ -773,15 +794,16 @@ function TradesTab({ liveData }) {
 function EvolutionTab() {
   return (
     <div className="space-y-6">
-      <div><h2 className="text-lg font-semibold">System Architecture</h2><p className="text-sm text-slate-500">Five-layer pipeline powering the AI portfolio system.</p></div>
+      <div><h2 className="text-lg font-semibold">System Architecture</h2><p className="text-sm text-slate-500">Six-layer pipeline powering the AI portfolio system.</p></div>
       <Card>
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-6 gap-3">
           {[
-            [Database, 'Data Pipeline', '503 S&P 500 tickers · Daily OHLCV data'],
+            [Database, 'Data Pipeline', '503 S&P 500 tickers · Daily OHLCV · Parquet storage'],
             [FlaskConical, 'Backtest Engine', 'Vectorized engine · 2000-2026 · Multi-regime validated'],
-            [LineChart, 'Paper Trading', 'Alpaca API, $100K, 3 sub-portfolios'],
-            [ShieldCheck, 'Risk Manager', 'Stops, circuit breakers, position limits'],
-            [Brain, 'Self-Improvement', 'Opus-powered weekly evolution cycle'],
+            [LineChart, 'Paper Trading', 'Alpaca API · $100K per account · 3 independent paper trading accounts'],
+            [ShieldCheck, 'Risk Manager', 'Trailing stops (7-10%) · Portfolio stops (10-20%) · Circuit breakers · Position limits'],
+            [Brain, 'Self-Improvement', 'Claude Opus-powered weekly evolution cycle with Telegram approval'],
+            [Monitor, 'Dashboard', 'React + Vite on Vercel · Live equity curves · SPY benchmark · Backtest visualization'],
           ].map(([Icon, l, d], i) => (
             <div key={i} className="rounded-lg border border-white/[0.04] bg-white/[0.02] p-3"><div className="text-emerald-400 mb-1"><Icon size={20} /></div><div className="text-sm font-medium mb-0.5">{l}</div><div className="text-[10px] text-slate-500 leading-tight">{d}</div></div>
           ))}
