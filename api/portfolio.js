@@ -3,6 +3,7 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET');
 
   var BASE_URL = process.env.ALPACA_BASE_URL || 'https://paper-api.alpaca.markets';
+  var MODE = BASE_URL.indexOf('paper') !== -1 ? 'Paper Trading' : 'Live';
 
   var profileCreds = {
     aggressive: {
@@ -168,6 +169,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       timestamp: new Date().toISOString(),
+      mode: MODE,
       summary: {
         totalValue: totalValue,
         totalPnl: totalPnl,

@@ -392,7 +392,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h2 className="text-lg font-semibold">System Performance</h2><p className="text-sm text-slate-500">AI Portfolio Management System v4.0 · Live Paper Trading</p></div>
+        <div><h2 className="text-lg font-semibold">System Performance</h2><p className="text-sm text-slate-500">AI Portfolio Management System v4.0 · {liveData && liveData.mode === 'Live' ? 'Live Trading' : 'Live Paper Trading'}</p></div>
         <div className="flex gap-3"><StatusPill status={connectedProfiles === 3 ? 'live' : 'waiting'} text={connectedProfiles + '/3 Connected'} /><StatusPill status="live" text="Phase 7 In Progress" /></div>
       </div>
 
@@ -749,8 +749,8 @@ function TradesTab({ liveData, lastUpdated }) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold">Live Paper Trading</h2>
-        <p className="text-sm text-slate-500">Positions from Alpaca paper accounts · {updatedLabel}</p>
+        <h2 className="text-lg font-semibold">{liveData.mode === 'Live' ? 'Live Trading' : 'Live Paper Trading'}</h2>
+        <p className="text-sm text-slate-500">Positions from Alpaca {liveData.mode === 'Live' ? 'live' : 'paper'} accounts · {updatedLabel}</p>
       </div>
 
       <Card>
@@ -769,7 +769,7 @@ function TradesTab({ liveData, lastUpdated }) {
           </div>
           <div>
             <div className="text-xs text-slate-500 mb-1">Mode</div>
-            <div className="font-mono text-lg font-bold text-amber-400">{summary.paperTrading ? 'Paper' : 'Live'}</div>
+            <div className={`font-mono text-lg font-bold ${liveData.mode === 'Live' ? 'text-emerald-400' : 'text-amber-400'}`}>{liveData.mode || 'Paper Trading'}</div>
           </div>
         </div>
       </Card>
