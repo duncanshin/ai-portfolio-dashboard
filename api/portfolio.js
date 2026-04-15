@@ -93,19 +93,28 @@ export default async function handler(req, res) {
       var result = yahooData.chart.result[0];
       var meta = result.meta;
       var timestamps = result.timestamp || [];
-      var closes = result.indicators.quote[0].close || [];
+      var quote = result.indicators.quote[0] || {};
+      var opens = quote.open || [];
+      var closes = quote.close || [];
       var currentPrice = meta.regularMarketPrice;
       var prevClose = meta.chartPreviousClose;
 
-      // Start price = first close on or after inception date. If none yet → notStarted.
+      // Anchor price = first OPEN on/after inception day — same anchor as the 3 paper accounts
+      // (which start trading at market open on inception day). Fall back to close if open missing.
+      // Live SPY value is then rebased: portfolioValue = 100000 * (currentPrice / startPrice),
+      // so day-1 open = exactly $100,000 and all 4 equity curves begin at the same level.
       var startPrice = null;
       for (var i = 0; i < timestamps.length; i++) {
-        if (timestamps[i] >= inceptionTs && closes[i] != null) { startPrice = closes[i]; break; }
+        if (timestamps[i] >= inceptionTs) {
+          if (opens[i] != null) { startPrice = opens[i]; break; }
+          if (closes[i] != null) { startPrice = closes[i]; break; }
+        }
       }
       if (startPrice == null) {
         return { connected: true, notStarted: true, symbol: 'SPY', portfolioValue: INITIAL_CAPITAL, totalPnl: 0, totalPnlPct: 0, dailyPnl: 0, dailyPnlPct: 0, activePositions: 0, message: 'Starts at market open' };
       }
 
+      // Rebase: SPY price series → $100K-anchored equity curve.
       var portfolioValue = INITIAL_CAPITAL * (currentPrice / startPrice);
       var totalPnl = portfolioValue - INITIAL_CAPITAL;
       var totalPnlPct = ((currentPrice - startPrice) / startPrice) * 100;
