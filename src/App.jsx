@@ -285,7 +285,7 @@ function EquityCurveChart({ data, startIdx, endIdx, height = 340, crisisShade, n
         <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" />
         <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} interval={Math.max(1, Math.floor(slicedData.length / 10))} tickFormatter={v => v.split('-')[0]} />
         {normalized
-          ? <YAxis domain={[minVal, 'auto']} tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={formatNorm} />
+          ? <YAxis scale="log" domain={[minVal, 'auto']} tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={formatNorm} allowDataOverflow={true} />
           : <YAxis scale="log" domain={[minVal, 'auto']} tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={v => formatDollar(v)} allowDataOverflow={true} />
         }
         <Tooltip content={props => {
