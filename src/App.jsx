@@ -690,7 +690,7 @@ function BacktestTab({ metrics, inflationAdj, setInflationAdj, normalized, setNo
   ] : []
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between"><div><h2 className="text-lg font-semibold">Backtest Results — {dateToLabel(dates[startIdx])} to {endIdx === dates.length - 1 ? 'Present' : dateToLabel(dates[endIdx])}{inflationAdj && !normalized ? <span className="text-purple-400 text-sm ml-2">(Inflation-Adjusted)</span> : ''}{normalized ? <span className="text-emerald-400 text-sm ml-2">(Normalized)</span> : ''}</h2><p className="text-sm text-slate-500">{years} years · Backtested across dot-com, 2008, COVID, and 2022 regimes.</p></div><div className="flex items-center gap-2"><NormalizeToggle normalized={normalized} setNormalized={setNormalized} /><InflationToggle inflationAdj={inflationAdj} setInflationAdj={setInflationAdj} disabled={normalized} /></div></div>
+      <div className="flex items-start justify-between"><div><h2 className="text-lg font-semibold">Backtest Results — {dateToLabel(dates[startIdx])} to {endIdx === dates.length - 1 ? 'Present' : dateToLabel(dates[endIdx])}{inflationAdj && !normalized ? <span className="text-purple-400 text-sm ml-2">(Inflation-Adjusted)</span> : ''}{normalized ? <span className="text-emerald-400 text-sm ml-2">(Normalized)</span> : ''}</h2><p className="text-sm text-slate-500">{years} years · Backtested across dot-com, 2008, COVID, and 2022 regimes.</p></div><InflationToggle inflationAdj={inflationAdj} setInflationAdj={setInflationAdj} disabled={normalized} /></div>
       <div className="grid grid-cols-4 gap-4">
         {['aggressive', 'growth', 'conservative'].map(key => {
           const p = BASE_PROFILES[key]; const pm = m ? m[p.name] : null; const Icon = p.icon
@@ -733,18 +733,21 @@ function BacktestTab({ metrics, inflationAdj, setInflationAdj, normalized, setNo
         <div className="mb-3"><h3 className="font-semibold text-sm mb-2">Select Time Period</h3></div>
         <div className="flex items-center justify-between mb-3">
           <div className="flex-1"><DateRangeSelector startIdx={startIdx} endIdx={endIdx} setStartIdx={setStartIdx} setEndIdx={setEndIdx} dates={dates} onCrisisShade={setCrisisShade} /></div>
-          <div className="flex items-center gap-5 px-3.5 py-2 rounded-lg border border-white/[0.06] bg-[#0c1019] ml-3 shrink-0">
-            {[
-              { label: 'Aggressive', color: '#f97316' },
-              { label: 'Growth', color: '#10b981' },
-              { label: 'Conservative', color: '#3b82f6' },
-              { label: 'S&P 500', color: '#94a3b8', dashed: true },
-            ].map(item => (
-              <div key={item.label} className="flex items-center gap-2">
-                <svg width="20" height="4"><line x1="0" y1="2" x2="20" y2="2" stroke={item.color} strokeWidth="3" strokeDasharray={item.dashed ? '5 3' : 'none'} /></svg>
-                <span className="text-[12px] text-slate-400">{item.label}</span>
-              </div>
-            ))}
+          <div className="flex items-center gap-3 ml-3 shrink-0">
+            <NormalizeToggle normalized={normalized} setNormalized={setNormalized} />
+            <div className="flex items-center gap-5 px-3.5 py-2 rounded-lg border border-white/[0.06] bg-[#0c1019]">
+              {[
+                { label: 'Aggressive', color: '#f97316' },
+                { label: 'Growth', color: '#10b981' },
+                { label: 'Conservative', color: '#3b82f6' },
+                { label: 'S&P 500', color: '#94a3b8', dashed: true },
+              ].map(item => (
+                <div key={item.label} className="flex items-center gap-2">
+                  <svg width="20" height="4"><line x1="0" y1="2" x2="20" y2="2" stroke={item.color} strokeWidth="3" strokeDasharray={item.dashed ? '5 3' : 'none'} /></svg>
+                  <span className="text-[12px] text-slate-400">{item.label}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
         <EquityCurveChart data={curveData} startIdx={startIdx} endIdx={endIdx} height={360} crisisShade={crisisShade} normalized={normalized} />
