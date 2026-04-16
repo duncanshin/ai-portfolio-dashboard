@@ -192,8 +192,16 @@ function StatusPill({ status, text, onClick }) {
   const dotColors = { live: 'bg-emerald-400 animate-pulse', waiting: 'bg-amber-400', paused: 'bg-red-400' }
   return <span onClick={onClick} className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${colors[status]} ${onClick ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}><span className={`w-1.5 h-1.5 rounded-full ${dotColors[status]}`} />{text}</span>
 }
-function InflationToggle({ inflationAdj, setInflationAdj }) {
-  return <button onClick={() => setInflationAdj(!inflationAdj)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${inflationAdj ? 'bg-purple-500/15 text-purple-300 border-purple-500/30' : 'bg-white/[0.03] text-slate-400 border-white/[0.08] hover:border-white/[0.15]'}`}>{inflationAdj ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}{inflationAdj ? 'Real' : 'Nominal'}</button>
+function InflationToggle({ inflationAdj, setInflationAdj, disabled }) {
+  return <button onClick={() => !disabled && setInflationAdj(!inflationAdj)} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${disabled ? 'opacity-40 cursor-not-allowed bg-white/[0.02] text-slate-500 border-white/[0.05]' : inflationAdj ? 'bg-purple-500/15 text-purple-300 border-purple-500/30' : 'bg-white/[0.03] text-slate-400 border-white/[0.08] hover:border-white/[0.15]'}`}>{inflationAdj ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}{inflationAdj ? 'Real' : 'Nominal'}</button>
+}
+function NormalizeToggle({ normalized, setNormalized }) {
+  return (
+    <div className="flex rounded-lg border border-white/[0.08] overflow-hidden">
+      <button onClick={() => setNormalized(false)} className={`px-3 py-1.5 text-xs font-medium transition-all ${!normalized ? 'bg-emerald-500/15 text-emerald-300 border-r border-emerald-500/30' : 'bg-white/[0.03] text-slate-400 border-r border-white/[0.08] hover:text-slate-300'}`}>$ Dollar</button>
+      <button onClick={() => setNormalized(true)} className={`px-3 py-1.5 text-xs font-medium transition-all ${normalized ? 'bg-emerald-500/15 text-emerald-300' : 'bg-white/[0.03] text-slate-400 hover:text-slate-300'}`}>% Normalized</button>
+    </div>
+  )
 }
 
 function DateRangeSelector({ startIdx, endIdx, setStartIdx, setEndIdx, dates, onCrisisShade }) {
@@ -246,11 +254,23 @@ function DateRangeSelector({ startIdx, endIdx, setStartIdx, setEndIdx, dates, on
   )
 }
 
-function EquityCurveChart({ data, startIdx, endIdx, height = 340, crisisShade }) {
-  const slicedData = data.slice(startIdx, endIdx + 1)
-  // Find min value for log scale domain (floor to avoid log(0))
+function EquityCurveChart({ data, startIdx, endIdx, height = 340, crisisShade, normalized = false }) {
+  const slicedData = useMemo(() => {
+    const raw = data.slice(startIdx, endIdx + 1)
+    if (!normalized || raw.length === 0) return raw
+    const keys = ['Aggressive', 'Growth', 'Conservative', 'S&P 500']
+    const base = {}
+    keys.forEach(k => { base[k] = raw[0][k] })
+    return raw.map(d => {
+      const n = { ...d }
+      keys.forEach(k => { n[k] = base[k] > 0 ? Math.round((d[k] / base[k]) * 1000) / 10 : 0 })
+      return n
+    })
+  }, [data, startIdx, endIdx, normalized])
+
   const allVals = slicedData.flatMap(d => [d.Aggressive, d.Growth, d.Conservative, d['S&P 500']].filter(v => v > 0))
-  const minVal = Math.max(1000, Math.min(...allVals) * 0.8)
+  const minVal = normalized ? Math.max(1, Math.min(...allVals) * 0.9) : Math.max(1000, Math.min(...allVals) * 0.8)
+  const formatNorm = (v) => v == null || isNaN(v) ? '—' : v >= 1000 ? `${(v / 100).toFixed(0)}x` : v.toFixed(0)
   return (
     <ResponsiveContainer width="100%" height={height}>
       <AreaChart data={slicedData}>
@@ -264,7 +284,10 @@ function EquityCurveChart({ data, startIdx, endIdx, height = 340, crisisShade })
         </defs>
         <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" />
         <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} interval={Math.max(1, Math.floor(slicedData.length / 10))} tickFormatter={v => v.split('-')[0]} />
-        <YAxis scale="log" domain={[minVal, 'auto']} tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={v => formatDollar(v)} allowDataOverflow={true} />
+        {normalized
+          ? <YAxis domain={[minVal, 'auto']} tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={formatNorm} />
+          : <YAxis scale="log" domain={[minVal, 'auto']} tick={{ fill: '#64748b', fontSize: 10 }} tickFormatter={v => formatDollar(v)} allowDataOverflow={true} />
+        }
         <Tooltip content={props => {
           if (!props.active || !props.payload || !props.payload.length) return null
           const sorted = props.payload.slice().filter(p => p.value != null).sort((a, b) => (b.value || 0) - (a.value || 0))
@@ -273,7 +296,7 @@ function EquityCurveChart({ data, startIdx, endIdx, height = 340, crisisShade })
               <div style={{ color: '#94a3b8', marginBottom: 4 }}>{dateToLabel(props.label)}</div>
               {sorted.map(p => (
                 <div key={p.dataKey} style={{ color: p.color, display: 'flex', justifyContent: 'space-between', gap: 16 }}>
-                  <span>{p.name}</span><span style={{ fontFamily: 'monospace' }}>{formatDollar(p.value)}</span>
+                  <span>{p.name}</span><span style={{ fontFamily: 'monospace' }}>{normalized ? formatNorm(p.value) : formatDollar(p.value)}</span>
                 </div>
               ))}
             </div>
@@ -647,7 +670,7 @@ function CapitalSlider({ capital, setCapital, metrics }) {
   )
 }
 
-function BacktestTab({ metrics, inflationAdj, setInflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates, capital, setCapital }) {
+function BacktestTab({ metrics, inflationAdj, setInflationAdj, normalized, setNormalized, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates, capital, setCapital }) {
   const [crisisShade, setCrisisShade] = useState(null)
   const m = metrics; const years = ((endIdx - startIdx) / 12).toFixed(1)
   const fmtVal = formatDollar
@@ -667,7 +690,7 @@ function BacktestTab({ metrics, inflationAdj, setInflationAdj, curveData, startI
   ] : []
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between"><div><h2 className="text-lg font-semibold">Backtest Results — {dateToLabel(dates[startIdx])} to {endIdx === dates.length - 1 ? 'Present' : dateToLabel(dates[endIdx])}{inflationAdj ? <span className="text-purple-400 text-sm ml-2">(Inflation-Adjusted)</span> : ''}</h2><p className="text-sm text-slate-500">{years} years · Backtested across dot-com, 2008, COVID, and 2022 regimes.</p></div><InflationToggle inflationAdj={inflationAdj} setInflationAdj={setInflationAdj} /></div>
+      <div className="flex items-start justify-between"><div><h2 className="text-lg font-semibold">Backtest Results — {dateToLabel(dates[startIdx])} to {endIdx === dates.length - 1 ? 'Present' : dateToLabel(dates[endIdx])}{inflationAdj && !normalized ? <span className="text-purple-400 text-sm ml-2">(Inflation-Adjusted)</span> : ''}{normalized ? <span className="text-emerald-400 text-sm ml-2">(Normalized)</span> : ''}</h2><p className="text-sm text-slate-500">{years} years · Backtested across dot-com, 2008, COVID, and 2022 regimes.</p></div><div className="flex items-center gap-2"><NormalizeToggle normalized={normalized} setNormalized={setNormalized} /><InflationToggle inflationAdj={inflationAdj} setInflationAdj={setInflationAdj} disabled={normalized} /></div></div>
       <div className="grid grid-cols-4 gap-4">
         {['aggressive', 'growth', 'conservative'].map(key => {
           const p = BASE_PROFILES[key]; const pm = m ? m[p.name] : null; const Icon = p.icon
@@ -724,7 +747,7 @@ function BacktestTab({ metrics, inflationAdj, setInflationAdj, curveData, startI
             ))}
           </div>
         </div>
-        <EquityCurveChart data={curveData} startIdx={startIdx} endIdx={endIdx} height={360} crisisShade={crisisShade} />
+        <EquityCurveChart data={curveData} startIdx={startIdx} endIdx={endIdx} height={360} crisisShade={crisisShade} normalized={normalized} />
       </Card>
       <Card><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-white/[0.06]"><th className="text-left py-3 px-3 text-xs text-slate-500 uppercase font-medium">Metric</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#f97316' }}>Aggressive</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#10b981' }}>Growth</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: '#3b82f6' }}>Conservative</th><th className="text-right py-3 px-3 text-xs uppercase font-medium" style={{ color: BASE_PROFILES.benchmark.color }}>S&P 500</th></tr></thead>
         <tbody>{rows.map((r, i) => <tr key={r.key} className={`border-b border-white/[0.03] ${i % 2 === 0 ? 'bg-white/[0.01]' : ''}`}><td className="py-2.5 px-3"><div className="font-medium">{r.key}{inflationAdj && <span className="text-purple-400 ml-1.5 text-xs font-normal">{r.realLabel || '(Real)'}</span>}</div><div className="text-[10px] text-slate-500">{r.d}</div></td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: '#f97316' }}>{r.a}</td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: '#10b981' }}>{r.g}</td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: '#3b82f6' }}>{r.c}</td><td className="py-2.5 px-3 text-right font-mono font-semibold" style={{ color: BASE_PROFILES.benchmark.color }}>{r.b}</td></tr>)}</tbody></table></div></Card>
@@ -1031,6 +1054,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('overview')
   const [systemActive, setSystemActive] = useState(true)
   const [inflationAdj, setInflationAdj] = useState(false)
+  const [normalized, setNormalized] = useState(false)
   const [startIdx, setStartIdx] = useState(0)
   const [endIdx, setEndIdx] = useState(0)
   const [fullMergedCurve, setFullMergedCurve] = useState(null)
@@ -1073,7 +1097,7 @@ export default function App() {
   const curveData = useMemo(() => fullMergedCurve ? getAdjustedCurve(fullMergedCurve, startIdx, inflationAdj, capital) : null, [fullMergedCurve, inflationAdj, startIdx, capital])
   const metrics = useMemo(() => fullMergedCurve ? calcMetrics(fullMergedCurve, startIdx, endIdx, jsonMetrics, jsonTrades, dates, capital) : null, [fullMergedCurve, startIdx, endIdx, jsonMetrics, jsonTrades, dates, capital])
   const inflMetrics = useMemo(() => (inflationAdj && curveData) ? calcMetrics(curveData, startIdx, endIdx, null, jsonTrades, dates, capital) : metrics, [curveData, inflationAdj, startIdx, endIdx, metrics, jsonTrades, dates, capital])
-  const tabProps = { metrics: inflMetrics, inflationAdj, setInflationAdj, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates, capital, setCapital }
+  const tabProps = { metrics: inflMetrics, inflationAdj, setInflationAdj, normalized, setNormalized, curveData, startIdx, endIdx, setStartIdx, setEndIdx, dates, capital, setCapital }
   const TabContent = { overview: () => <OverviewTab {...tabProps} liveData={liveData} lastUpdated={lastUpdated} />, backtest: () => <BacktestTab {...tabProps} />, profiles: () => <ProfilesTab metrics={inflMetrics} inflationAdj={inflationAdj} />, trades: () => <TradesTab liveData={liveData} lastUpdated={lastUpdated} />, evolution: () => <EvolutionTab /> }
   return (
     <div className="min-h-screen bg-[#0a0e17]">
