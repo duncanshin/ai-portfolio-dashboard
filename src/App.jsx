@@ -347,13 +347,31 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
     var dateParams = isCustomRange ? '&start=' + customStart + '&end=' + customEnd : ''
     var periodParam = isCustomRange ? 'all' : historyPeriod
     var safeFetch = function(url) { return fetch(url).then(function(r) { return r.ok ? r.json() : null }).catch(function() { return null }) }
+    // Two-phase fetch so SPY can anchor dynamically to the first portfolio trading day.
+    // Phase 1: pull the 3 Alpaca portfolio histories (independent of benchmark).
+    // Phase 2: derive firstPortfolioDate = earliest date across all 3; pass as
+    // anchor_date to /api/benchmark and /api/portfolio so all 4 lines start at
+    // $100K on the same date. If portfolio histories are empty (brand-new deploy),
+    // skip the anchor — endpoints degrade to their notStarted / empty-series fallbacks.
     Promise.all([
       safeFetch('/api/history?profile=aggressive&period=' + periodParam + '&timeframe=1D' + dateParams),
       safeFetch('/api/history?profile=growth&period=' + periodParam + '&timeframe=1D' + dateParams),
       safeFetch('/api/history?profile=conservative&period=' + periodParam + '&timeframe=1D' + dateParams),
-      safeFetch('/api/benchmark?period=' + periodParam + '&timeframe=1D' + dateParams),
-      safeFetch('/api/portfolio'),
-    ])
+    ]).then(function(histResults) {
+      var agg = histResults[0], gro = histResults[1], con = histResults[2]
+      var firstDates = [agg, gro, con]
+        .map(function(h) { return h && h.points && h.points.length ? h.points[0].date : null })
+        .filter(Boolean)
+      var firstPortfolioDate = firstDates.length ? firstDates.sort()[0] : null
+      var anchorParam = firstPortfolioDate ? '&anchor_date=' + firstPortfolioDate : ''
+      return Promise.all([
+        Promise.resolve(agg),
+        Promise.resolve(gro),
+        Promise.resolve(con),
+        safeFetch('/api/benchmark?period=' + periodParam + '&timeframe=1D' + dateParams + anchorParam),
+        safeFetch('/api/portfolio' + (firstPortfolioDate ? '?anchor_date=' + firstPortfolioDate : '')),
+      ])
+    })
       .then(function(results) {
         var agg = results[0], gro = results[1], con = results[2], bench = results[3], live = results[4]
         var dateMap = {}

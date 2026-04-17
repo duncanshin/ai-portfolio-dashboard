@@ -97,6 +97,30 @@ export default async function handler(req, res) {
     }
   }
 
+  // Find the first date Alpaca has equity data for the given profile. Used as the
+  // dynamic anchor for SPY normalization when the caller doesn't pass anchor_date.
+  // Period=1A is enough since all 3 paper accounts were seeded within the last
+  // week; falls back to null on any error so the benchmark degrades gracefully.
+  async function fetchFirstTradingDate(creds) {
+    if (!creds || !creds.key || !creds.secret) return null;
+    try {
+      var res = await fetch(
+        BASE_URL + '/v2/account/portfolio/history?period=1A&timeframe=1D',
+        { headers: { 'APCA-API-KEY-ID': creds.key, 'APCA-API-SECRET-KEY': creds.secret } }
+      );
+      if (!res.ok) return null;
+      var data = await res.json();
+      if (!data.timestamp || !data.timestamp.length) return null;
+      var d = new Date(data.timestamp[0] * 1000);
+      var year = d.getFullYear();
+      var month = String(d.getMonth() + 1).padStart(2, '0');
+      var day = String(d.getDate()).padStart(2, '0');
+      return year + '-' + month + '-' + day;
+    } catch (err) {
+      return null;
+    }
+  }
+
   // Compute S&P 500 benchmark tracked as if $100K was invested at `inceptionDate`.
   // Uses SPY (via Yahoo) — not a separate Alpaca account. Pre-inception → notStarted state.
   async function fetchBenchmark(inceptionDate) {
@@ -125,15 +149,14 @@ export default async function handler(req, res) {
       var currentPrice = meta.regularMarketPrice;
       var prevClose = meta.chartPreviousClose;
 
-      // Anchor price = first OPEN on/after inception day — same anchor as the 3 paper accounts
-      // (which start trading at market open on inception day). Fall back to close if open missing.
-      // Live SPY value is then rebased: portfolioValue = 100000 * (currentPrice / startPrice),
-      // so day-1 open = exactly $100,000 and all 4 equity curves begin at the same level.
+      // Anchor price = CLOSE of first bar on/after inception day. Using close (not
+      // open) matches Alpaca's end-of-day portfolio-history equity, so SPY(inception)
+      // = $100K exactly and all 4 lines (3 portfolios + SPY) start on the same level.
       var startPrice = null;
       for (var i = 0; i < timestamps.length; i++) {
-        if (timestamps[i] >= inceptionTs) {
-          if (opens[i] != null) { startPrice = opens[i]; break; }
-          if (closes[i] != null) { startPrice = closes[i]; break; }
+        if (timestamps[i] >= inceptionTs && closes[i] != null) {
+          startPrice = closes[i];
+          break;
         }
       }
       if (startPrice == null) {
@@ -178,11 +201,26 @@ export default async function handler(req, res) {
     var growth = profileResults[1];
     var conservative = profileResults[2];
 
-    // S&P 500 benchmark inception: same day the 3 paper accounts start trading.
-    // Pre-inception → fetchBenchmark returns notStarted=true ($100K / $0 / 0 positions).
-    var benchmarkStartDate = '2026-04-15';
+    var connectedProfilesWithCreds = [
+      { result: aggressive, creds: profileCreds.aggressive },
+      { result: growth,     creds: profileCreds.growth },
+      { result: conservative, creds: profileCreds.conservative },
+    ].filter(function(x) { return x.result && x.result.connected; });
 
-    var benchmark = await fetchBenchmark(benchmarkStartDate);
+    // S&P 500 benchmark inception: the day the 3 paper accounts start trading.
+    // Derived dynamically so it auto-updates when accounts are reseeded:
+    //   1. Caller may pass ?anchor_date=YYYY-MM-DD (App.jsx Effect A does this after
+    //      pulling portfolio histories — avoids a redundant Alpaca call).
+    //   2. Fallback: query Alpaca portfolio-history for the first connected profile
+    //      and use its first equity timestamp (supports App.jsx Effect B's 60s poll).
+    //   3. If both fail (brand-new deploy, no equity yet) → notStarted state.
+    var benchmarkStartDate = req.query.anchor_date || null;
+    if (!benchmarkStartDate && connectedProfilesWithCreds.length) {
+      benchmarkStartDate = await fetchFirstTradingDate(connectedProfilesWithCreds[0].creds);
+    }
+    var benchmark = benchmarkStartDate
+      ? await fetchBenchmark(benchmarkStartDate)
+      : { connected: true, notStarted: true, symbol: 'SPY', portfolioValue: 100000, totalPnl: 0, totalPnlPct: 0, dailyPnl: 0, dailyPnlPct: 0, activePositions: 0, message: 'Awaiting anchor date' };
 
     var connected = profileResults.filter(function(p) { return p.connected; });
 
