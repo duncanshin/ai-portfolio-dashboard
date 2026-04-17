@@ -317,7 +317,11 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
   const [historyData, setHistoryData] = useState(null)
   const [historyLoading, setHistoryLoading] = useState(false)
   const [isCustomRange, setIsCustomRange] = useState(false)
-  const [customStart, setCustomStart] = useState('2026-04-15')
+  // firstPortfolioDate is the dynamic inception = first date Alpaca reports
+  // non-zero equity. Drives the chart's left edge AND the SPY anchor so neither
+  // one is hardcoded. null until Alpaca portfolio-history resolves.
+  const [firstPortfolioDate, setFirstPortfolioDate] = useState(null)
+  const [customStart, setCustomStart] = useState(new Date().toISOString().split('T')[0])
   const [customEnd, setCustomEnd] = useState(new Date().toISOString().split('T')[0])
 
   const HISTORY_PERIODS = [
@@ -335,9 +339,8 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
     { key: 'conservative', name: 'Conservative', color: '#3b82f6', textColor: 'text-blue-400', bgBadge: 'text-blue-400 bg-blue-400/10', icon: Shield },
   ]
 
-  const DEFAULT_START_DATE = '2026-04-15'
   const chartData = historyData ? historyData.filter(function(d) {
-    var startFilter = isCustomRange ? customStart : DEFAULT_START_DATE
+    var startFilter = isCustomRange ? customStart : (firstPortfolioDate || '')
     var endFilter = isCustomRange ? customEnd : '9999-12-31'
     return d.date >= startFilter && d.date <= endFilter
   }) : null
@@ -359,21 +362,25 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
       safeFetch('/api/history?profile=conservative&period=' + periodParam + '&timeframe=1D' + dateParams),
     ]).then(function(histResults) {
       var agg = histResults[0], gro = histResults[1], con = histResults[2]
+      // history.js now filters out pre-seed zero-equity days server-side, so
+      // points[0].date is guaranteed to be the first real trading day.
       var firstDates = [agg, gro, con]
         .map(function(h) { return h && h.points && h.points.length ? h.points[0].date : null })
         .filter(Boolean)
-      var firstPortfolioDate = firstDates.length ? firstDates.sort()[0] : null
-      var anchorParam = firstPortfolioDate ? '&anchor_date=' + firstPortfolioDate : ''
+      var derivedFirstDate = firstDates.length ? firstDates.sort()[0] : null
+      setFirstPortfolioDate(derivedFirstDate)
+      var anchorParam = derivedFirstDate ? '&anchor_date=' + derivedFirstDate : ''
       return Promise.all([
         Promise.resolve(agg),
         Promise.resolve(gro),
         Promise.resolve(con),
         safeFetch('/api/benchmark?period=' + periodParam + '&timeframe=1D' + dateParams + anchorParam),
-        safeFetch('/api/portfolio' + (firstPortfolioDate ? '?anchor_date=' + firstPortfolioDate : '')),
+        safeFetch('/api/portfolio' + (derivedFirstDate ? '?anchor_date=' + derivedFirstDate : '')),
+        Promise.resolve(derivedFirstDate),
       ])
     })
       .then(function(results) {
-        var agg = results[0], gro = results[1], con = results[2], bench = results[3], live = results[4]
+        var agg = results[0], gro = results[1], con = results[2], bench = results[3], live = results[4], derivedFirstDate = results[5]
         var dateMap = {}
         function addPoints(data, key, field) {
           if (!data || !data.points) return
@@ -401,15 +408,18 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
             dateMap[today].spy = live.benchmark.portfolioValue
           }
         }
-        // Pad series with every trading day from start → period-forward end so X-axis
-        // spans the full selected range. Today's point then anchors at the left edge.
+        // Pad series with every trading day from inception → period-forward end so
+        // X-axis spans the full selected range. Inception is derived dynamically
+        // (first non-zero equity day from Alpaca) so it auto-updates on account
+        // reseed. Fallback: today's date if no portfolio data yet (new deploy).
+        var inception = derivedFirstDate || new Date().toISOString().split('T')[0]
         var periodDays = { '1W': 7, '1M': 30, '3M': 90, '6M': 180, '1A': 365, 'all': 90 }
-        var forward = new Date('2026-04-15T00:00:00Z')
+        var forward = new Date(inception + 'T00:00:00Z')
         forward.setUTCDate(forward.getUTCDate() + (periodDays[historyPeriod] || 30))
         var periodEnd = forward.toISOString().split('T')[0]
-        var rangeStart = isCustomRange ? customStart : '2026-04-15'
+        var rangeStart = isCustomRange ? customStart : inception
         var rangeEnd = isCustomRange ? customEnd : periodEnd
-        if (rangeStart < '2026-04-15') rangeStart = '2026-04-15'
+        if (rangeStart < inception) rangeStart = inception
         var cursor = new Date(rangeStart + 'T00:00:00Z')
         var endD = new Date(rangeEnd + 'T00:00:00Z')
         while (cursor <= endD) {
@@ -421,7 +431,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
           cursor.setUTCDate(cursor.getUTCDate() + 1)
         }
         var merged = Object.values(dateMap).sort(function(a, b) { return a.date.localeCompare(b.date) })
-        merged = merged.filter(function(d) { return d.date >= '2026-04-15' && d.date <= rangeEnd })
+        merged = merged.filter(function(d) { return d.date >= inception && d.date <= rangeEnd })
         setHistoryData(merged)
         setHistoryLoading(false)
       })
@@ -542,7 +552,7 @@ function OverviewTab({ metrics, inflationAdj, curvData, startIdx, endIdx, setSta
             </div>
             <div className="flex items-center gap-0.5">
               {HISTORY_PERIODS.map(function(p) { return (
-                <button key={p.value} onClick={function() { setIsCustomRange(false); setHistoryPeriod(p.value); setCustomStart('2026-04-15'); setCustomEnd(new Date().toISOString().split('T')[0]) }}
+                <button key={p.value} onClick={function() { setIsCustomRange(false); setHistoryPeriod(p.value); setCustomStart(firstPortfolioDate || new Date().toISOString().split('T')[0]); setCustomEnd(new Date().toISOString().split('T')[0]) }}
                   className={'px-2 py-0.5 rounded text-[10px] font-medium transition-all ' + (!isCustomRange && historyPeriod === p.value ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300')}>{p.label}</button>
               )})}
             </div>

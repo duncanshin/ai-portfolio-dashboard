@@ -57,6 +57,11 @@ export default async function handler(req, res) {
     var points = [];
     if (data.timestamp && data.equity) {
       for (var i = 0; i < data.timestamp.length; i++) {
+        // Skip pre-seed days — Alpaca pads portfolio/history with equity=0 for
+        // every calendar day before the account was funded. Returning those
+        // points makes the frontend anchor SPY to an erroneous date (e.g.
+        // 30 days ago when period=1M) instead of the first real trading day.
+        if (!(data.equity[i] > 0)) continue;
         var d = new Date(data.timestamp[i] * 1000);
         var year = d.getFullYear();
         var month = String(d.getMonth() + 1).padStart(2, '0');
