@@ -97,30 +97,6 @@ export default async function handler(req, res) {
     }
   }
 
-  // Find the first date Alpaca has equity data for the given profile. Used as the
-  // dynamic anchor for SPY normalization when the caller doesn't pass anchor_date.
-  // Period=1A is enough since all 3 paper accounts were seeded within the last
-  // week; falls back to null on any error so the benchmark degrades gracefully.
-  async function fetchFirstTradingDate(creds) {
-    if (!creds || !creds.key || !creds.secret) return null;
-    try {
-      var res = await fetch(
-        BASE_URL + '/v2/account/portfolio/history?period=1A&timeframe=1D',
-        { headers: { 'APCA-API-KEY-ID': creds.key, 'APCA-API-SECRET-KEY': creds.secret } }
-      );
-      if (!res.ok) return null;
-      var data = await res.json();
-      if (!data.timestamp || !data.timestamp.length) return null;
-      var d = new Date(data.timestamp[0] * 1000);
-      var year = d.getFullYear();
-      var month = String(d.getMonth() + 1).padStart(2, '0');
-      var day = String(d.getDate()).padStart(2, '0');
-      return year + '-' + month + '-' + day;
-    } catch (err) {
-      return null;
-    }
-  }
-
   // Compute S&P 500 benchmark tracked as if $100K was invested at `inceptionDate`.
   // Uses SPY (via Yahoo) — not a separate Alpaca account. Pre-inception → notStarted state.
   async function fetchBenchmark(inceptionDate) {
@@ -201,23 +177,12 @@ export default async function handler(req, res) {
     var growth = profileResults[1];
     var conservative = profileResults[2];
 
-    var connectedProfilesWithCreds = [
-      { result: aggressive, creds: profileCreds.aggressive },
-      { result: growth,     creds: profileCreds.growth },
-      { result: conservative, creds: profileCreds.conservative },
-    ].filter(function(x) { return x.result && x.result.connected; });
-
     // S&P 500 benchmark inception: the day the 3 paper accounts start trading.
-    // Derived dynamically so it auto-updates when accounts are reseeded:
-    //   1. Caller may pass ?anchor_date=YYYY-MM-DD (App.jsx Effect A does this after
-    //      pulling portfolio histories — avoids a redundant Alpaca call).
-    //   2. Fallback: query Alpaca portfolio-history for the first connected profile
-    //      and use its first equity timestamp (supports App.jsx Effect B's 60s poll).
-    //   3. If both fail (brand-new deploy, no equity yet) → notStarted state.
+    // Always derived dynamically via ?anchor_date=YYYY-MM-DD from the caller, which
+    // derives it from Alpaca portfolio history (first date with equity data). Both
+    // App.jsx effects pass this; direct consumers must pass it too. Omitting it
+    // degrades to notStarted so we never silently rebase to a stale/wrong date.
     var benchmarkStartDate = req.query.anchor_date || null;
-    if (!benchmarkStartDate && connectedProfilesWithCreds.length) {
-      benchmarkStartDate = await fetchFirstTradingDate(connectedProfilesWithCreds[0].creds);
-    }
     var benchmark = benchmarkStartDate
       ? await fetchBenchmark(benchmarkStartDate)
       : { connected: true, notStarted: true, symbol: 'SPY', portfolioValue: 100000, totalPnl: 0, totalPnlPct: 0, dailyPnl: 0, dailyPnlPct: 0, activePositions: 0, message: 'Awaiting anchor date' };

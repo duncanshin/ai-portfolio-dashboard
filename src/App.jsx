@@ -1101,10 +1101,21 @@ export default function App() {
 
   // Single source of truth for Alpaca/benchmark live state.
   // Polls every 60s; every child tab reads from this via props — no duplicate fetches.
+  // Each poll derives firstPortfolioDate from a short Alpaca portfolio-history query
+  // (same period the chart uses) and passes it as anchor_date so the S&P 500 card
+  // rebase matches the chart exactly. Without this, the server falls back to
+  // period=1A which picks up the year-ago date — not the post-reset inception.
   useEffect(() => {
     let cancelled = false
     const pull = () => {
-      fetch('/api/portfolio')
+      fetch('/api/history?profile=aggressive&period=1M&timeframe=1D')
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null)
+        .then(hist => {
+          const anchor = hist && hist.points && hist.points.length ? hist.points[0].date : null
+          const url = '/api/portfolio' + (anchor ? '?anchor_date=' + anchor : '')
+          return fetch(url)
+        })
         .then(r => { if (!r.ok) throw new Error('API error'); return r.json() })
         .then(data => { if (!cancelled) { setLiveData(data); setLastUpdated(new Date().toISOString()) } })
         .catch(err => console.error('Portfolio fetch failed:', err))
