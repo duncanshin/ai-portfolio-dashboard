@@ -56,23 +56,29 @@ export default async function handler(req, res) {
     var data = await response.json();
     var points = [];
     if (data.timestamp && data.equity) {
-      // Find the first real trading day. Alpaca pads portfolio/history with:
+      // Find the "first portfolio equity date" — the date all 4 lines on the
+      // chart (3 portfolios + SPY) should start at $100K. Alpaca pads
+      // portfolio/history with:
       //   (a) zero-equity rows for every calendar day before the account was funded
-      //   (b) a seed-equity row on the day the account was journal-funded (equity
-      //       = seed amount, profit_loss = 0, no actual trading yet)
-      // Both patterns, if returned to the frontend, cause SPY to be anchored to
-      // a non-trading date. We skip the LEADING run of zero-equity-or-zero-PnL
-      // rows, then emit the remainder verbatim.
-      var pl = data.profit_loss || [];
+      //   (b) one or more leading seed-value rows where equity = seed and no
+      //       trading has yet moved it (could be a journal-deposit day, or a
+      //       trading day where no orders filled)
+      // We skip leading zeros, then advance through consecutive equal-equity
+      // rows to land on the LAST of that flat run — which is the final seed-
+      // value day before the portfolio starts diverging. Keep that row and
+      // everything after it. This matches the user's mental anchor: "the first
+      // tracking day where all 4 lines should read $100K."
+      var n = data.timestamp.length;
       var firstIdx = 0;
-      while (firstIdx < data.timestamp.length) {
-        var eq = data.equity[firstIdx];
-        var p = pl[firstIdx];
-        var isPreTrading = !(eq > 0) || (p === 0 || p === '0');
-        if (!isPreTrading) break;
+      while (firstIdx < n && !(data.equity[firstIdx] > 0)) firstIdx++;
+      while (
+        firstIdx + 1 < n &&
+        data.equity[firstIdx + 1] > 0 &&
+        Math.abs(data.equity[firstIdx] - data.equity[firstIdx + 1]) < 0.01
+      ) {
         firstIdx++;
       }
-      for (var i = firstIdx; i < data.timestamp.length; i++) {
+      for (var i = firstIdx; i < n; i++) {
         if (!(data.equity[i] > 0)) continue;
         var d = new Date(data.timestamp[i] * 1000);
         var year = d.getFullYear();
