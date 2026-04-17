@@ -56,11 +56,23 @@ export default async function handler(req, res) {
     var data = await response.json();
     var points = [];
     if (data.timestamp && data.equity) {
-      for (var i = 0; i < data.timestamp.length; i++) {
-        // Skip pre-seed days — Alpaca pads portfolio/history with equity=0 for
-        // every calendar day before the account was funded. Returning those
-        // points makes the frontend anchor SPY to an erroneous date (e.g.
-        // 30 days ago when period=1M) instead of the first real trading day.
+      // Find the first real trading day. Alpaca pads portfolio/history with:
+      //   (a) zero-equity rows for every calendar day before the account was funded
+      //   (b) a seed-equity row on the day the account was journal-funded (equity
+      //       = seed amount, profit_loss = 0, no actual trading yet)
+      // Both patterns, if returned to the frontend, cause SPY to be anchored to
+      // a non-trading date. We skip the LEADING run of zero-equity-or-zero-PnL
+      // rows, then emit the remainder verbatim.
+      var pl = data.profit_loss || [];
+      var firstIdx = 0;
+      while (firstIdx < data.timestamp.length) {
+        var eq = data.equity[firstIdx];
+        var p = pl[firstIdx];
+        var isPreTrading = !(eq > 0) || (p === 0 || p === '0');
+        if (!isPreTrading) break;
+        firstIdx++;
+      }
+      for (var i = firstIdx; i < data.timestamp.length; i++) {
         if (!(data.equity[i] > 0)) continue;
         var d = new Date(data.timestamp[i] * 1000);
         var year = d.getFullYear();
